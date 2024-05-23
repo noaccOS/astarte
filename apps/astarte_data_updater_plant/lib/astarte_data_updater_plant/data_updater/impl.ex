@@ -20,6 +20,8 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   @moduledoc """
   This module implements the core logic of the DataUpdater process.
   """
+  @behaviour Mississippi.Consumer.DataUpdater.Handler
+
   alias Astarte.Core.Device
   alias Astarte.DataUpdaterPlant.Config
   alias Astarte.DataUpdaterPlant.DataUpdater.Cache
@@ -31,6 +33,56 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   alias Astarte.DataUpdaterPlant.TriggersHandler
 
   require Logger
+
+  use GenServer
+
+  @impl true
+  def init(sharding_key) do
+    # TODO change this, we want extended device IDs to fall in the same process
+    {realm, device_id} = sharding_key
+
+    state = %State{
+      realm: realm,
+      device_id: device_id,
+      paths_cache: Cache.new(Config.paths_cache_size!()),
+    }
+
+    encoded_device_id = Device.encode_device_id(device_id)
+    Logger.metadata(realm: realm, device_id: encoded_device_id)
+    Logger.info("Created device process.", tag: "device_process_created")
+
+    device_status = Queries.get_device_status(new_state.realm, device_id)
+
+    # TODO this could be a bang!
+    {:ok, ttl} = Queries.get_datastream_maximum_storage_retention(new_state.realm)
+
+    Map.merge(new_state, device_status)
+    |> Map.put(:datastream_maximum_storage_retention, ttl)
+  end
+
+  @impl true
+  def handle_message(_, _, _, _, state) do
+    # Ack all messages for now
+    {:ack, :ok, state}
+  end
+
+  @impl true
+  def handle_signal(_, state) do
+    # All is ok for now
+    {:ok, state}
+  end
+
+  @impl true
+  def handle_continue(_, state) do
+    # All is ok for now
+    {:ok, state}
+  end
+
+  @impl true
+  def terminate(_, state) do
+    # All is ok for now
+    {:ok, state}
+  end
 
   def init_state(realm, device_id, message_tracker) do
     MessageTracker.register_data_updater(message_tracker)
