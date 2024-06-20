@@ -103,7 +103,7 @@ jobs:
         id: build
         with:
           context: .
-          file: apps/${{ matrix.app }}/Dockerfile
+          args: SERVICE=${{ matrix.app }}
           push: true
           tags: astarte/${{ matrix.app }}
           platforms: ${{ matrix.platform.platform }}
