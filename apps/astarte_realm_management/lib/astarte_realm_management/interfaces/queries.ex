@@ -828,4 +828,41 @@ defmodule Astarte.RealmManagement.Interfaces.Queries do
 
     Repo.fetch_all(query, prefix: keyspace, consistency: consistency)
   end
+
+  @doc """
+  Return the list of `Astarte.Core.Interface`s for the specified realm.
+  """
+  def get_detailed_interfaces_list(realm_name) do
+    keyspace = Realm.keyspace_name(realm_name)
+    consistency = Consistency.domain_model(:read)
+    opts = [prefix: keyspace, consistency: consistency]
+
+    with {:ok, interfaces} <- Repo.fetch_all(Interface, opts),
+         {:ok, endpoints} <- Repo.fetch_all(Endpoint, opts) do
+      mappings = Enum.map(endpoints, &Mapping.from_db_result!/1)
+
+      mappings_by_interface = mappings |> Enum.group_by(& &1.interface_id)
+
+      interface_documents =
+        for interface <- interfaces do
+          descriptor = InterfaceDescriptor.from_db_result!(interface)
+          mappings = mappings_by_interface |> Map.get(descriptor.interface_id)
+
+          %InterfaceDocument{
+            name: descriptor.name,
+            description: interface.description,
+            doc: interface.doc,
+            major_version: descriptor.major_version,
+            minor_version: descriptor.minor_version,
+            interface_id: descriptor.interface_id,
+            type: descriptor.type,
+            ownership: descriptor.ownership,
+            aggregation: descriptor.aggregation,
+            mappings: mappings
+          }
+        end
+
+      {:ok, interface_documents}
+    end
+  end
 end

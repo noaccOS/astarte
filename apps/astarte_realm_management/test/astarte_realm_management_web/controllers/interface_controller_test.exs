@@ -77,6 +77,11 @@ defmodule Astarte.RealmManagementWeb.InterfaceControllerTest do
       assert json_response(conn, 200)["data"] == []
     end
 
+    test "lists empty interfaces with details", %{auth_conn: conn, realm: realm} do
+      conn = get(conn, interface_path(conn, :index, realm), detailed: true)
+      assert json_response(conn, 200)["data"] == []
+    end
+
     test "lists interface after installing it", %{auth_conn: conn, realm: realm} do
       post_conn =
         post(conn, interface_path(conn, :create, realm),
@@ -88,6 +93,19 @@ defmodule Astarte.RealmManagementWeb.InterfaceControllerTest do
 
       list_conn = get(conn, interface_path(conn, :index, realm))
       assert json_response(list_conn, 200)["data"] == [@interface_name]
+    end
+
+    test "lists detailed interface after installing it", %{auth_conn: conn, realm: realm} do
+      post_conn =
+        post(conn, interface_path(conn, :create, realm),
+          data: @valid_attrs,
+          async_operation: "false"
+        )
+
+      assert response(post_conn, 201) == ""
+
+      list_conn = get(conn, interface_path(conn, :index, realm), detailed: true)
+      assert json_response(list_conn, 200)["data"] == [@valid_attrs]
     end
   end
 

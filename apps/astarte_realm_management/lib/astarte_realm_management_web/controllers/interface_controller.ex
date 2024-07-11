@@ -21,11 +21,13 @@ defmodule Astarte.RealmManagementWeb.InterfaceController do
 
   alias Astarte.Core.Interface
   alias Astarte.RealmManagement.Interfaces
+  alias Astarte.RealmManagement.Interfaces.InterfacesListOptions
 
   action_fallback Astarte.RealmManagementWeb.FallbackController
 
-  def index(conn, %{"realm_name" => realm_name}) do
-    with {:ok, interfaces} <- Interfaces.list_interfaces(realm_name) do
+  def index(conn, %{"realm_name" => realm_name} = params) do
+    with {:ok, opts} <- InterfacesListOptions.from_params(params),
+         {:ok, interfaces} <- Interfaces.list_interfaces(realm_name, opts) do
       render(conn, "index.json", interfaces: interfaces)
     end
   end
