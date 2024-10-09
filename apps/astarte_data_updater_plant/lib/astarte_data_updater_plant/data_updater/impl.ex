@@ -42,6 +42,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   @internal_path_header "x_astarte_internal_path"
   @interface_header "x_astarte_interface"
   @path_header "x_astarte_path"
+  @control_path_header "x_astarte_control_path"
 
   use GenServer
 
@@ -94,6 +95,10 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
       "data" ->
         %{@interface_header => interface, @path_header => path} = headers
         handle_data(state, interface, path, payload, timestamp)
+
+      "control" ->
+        %{@control_path_header => control_path} = headers
+        handle_control(state, control_path, payload, timestamp)
 
       _ ->
         # Ack all messages for now
@@ -297,7 +302,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   defdelegate handle_capabilities(state, capabilities, message_id, timestamp),
     to: Core.CapabilitiesHandler
 
-  defdelegate handle_control(state, path, payload, message_id, timestamp), to: Core.ControlHandler
+  defdelegate handle_control(state, path, payload, timestamp), to: Core.ControlHandler
 
   defdelegate handle_introspection(state, payload, timestamp),
     to: Core.IntrospectionHandler
