@@ -162,11 +162,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
       error_name: error_name
     } = error
 
+    telemetry = Map.get(error, :telemetry, :discarded_message)
+
     update_stats = Keyword.get(opts, :update_stats, true)
     execute_error_triggers = Keyword.get(opts, :execute_error_triggers, true)
 
     :telemetry.execute(
-      [:astarte, :data_updater_plant, :data_updater, :discarded_message],
+      [:astarte, :data_updater_plant, :data_updater, telemetry],
       %{},
       %{realm: state.realm}
     )
