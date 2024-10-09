@@ -86,6 +86,9 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
         %{@internal_path_header => internal_path} = headers
         handle_internal(state, internal_path, payload, timestamp)
 
+      "introspection" ->
+        handle_introspection(state, payload, timestamp)
+
       _ ->
         # Ack all messages for now
         {:ack, :ok, state}
@@ -261,6 +264,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
 
   defdelegate handle_control(state, path, payload, message_id, timestamp), to: Core.ControlHandler
 
-  defdelegate handle_introspection(state, payload, message_id, timestamp),
+  defdelegate handle_introspection(state, payload, timestamp),
     to: Core.IntrospectionHandler
 end
