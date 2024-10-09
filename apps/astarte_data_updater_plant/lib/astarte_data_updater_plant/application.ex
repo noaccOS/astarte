@@ -45,6 +45,7 @@ defmodule Astarte.DataUpdaterPlant.Application do
 
     children = [
       Astarte.DataUpdaterPlantWeb.Telemetry,
+      Astarte.DataUpdaterPlant.DataPipelineSupervisor,
       {Mississippi.Consumer, mississippi_consumer_opts!()}
     ]
 
