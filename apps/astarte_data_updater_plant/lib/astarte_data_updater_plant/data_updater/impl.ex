@@ -28,7 +28,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   alias Astarte.DataUpdaterPlant.DataUpdater.Core
   alias Astarte.DataUpdaterPlant.DataUpdater.Queries
   alias Astarte.DataUpdaterPlant.DataUpdater.State
-  alias Astarte.DataUpdaterPlant.MessageTracker
   alias Astarte.DataUpdaterPlant.TimeBasedActions
   alias Astarte.DataUpdaterPlant.TriggerPolicy.Queries, as: PolicyQueries
   alias Astarte.DataUpdaterPlant.TriggersHandler
@@ -43,8 +42,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   @interface_header "x_astarte_interface"
   @path_header "x_astarte_path"
   @control_path_header "x_astarte_control_path"
-
-  use GenServer
 
   @impl true
   def init(sharding_key) do
@@ -133,30 +130,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   def terminate(_, state) do
     # All is ok for now
     {:ok, state}
-  end
-
-  def init_state(realm, device_id, message_tracker) do
-    MessageTracker.register_data_updater(message_tracker)
-    Process.monitor(message_tracker)
-
-    new_state = %State{
-      realm: realm,
-      device_id: device_id,
-      message_tracker: message_tracker,
-      paths_cache: Cache.new(Config.paths_cache_size!())
-    }
-
-    encoded_device_id = Device.encode_device_id(device_id)
-    Logger.metadata(realm: realm, device_id: encoded_device_id)
-    Logger.info("Created device process.", tag: "device_process_created")
-
-    device_status = Queries.get_device_status(new_state.realm, device_id)
-
-    # TODO this could be a bang!
-    {:ok, ttl} = Queries.get_datastream_maximum_storage_retention(new_state.realm)
-
-    Map.merge(new_state, device_status)
-    |> Map.put(:datastream_maximum_storage_retention, ttl)
   end
 
   def handle_deactivation(_state) do
