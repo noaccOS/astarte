@@ -68,12 +68,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Server do
     end
   end
 
-  def handle_call({:dump_state}, _from, state) do
-    timeout = Config.data_updater_deactivation_interval_ms!()
-
-    {:reply, state, state, timeout}
-  end
-
   @impl GenServer
   def handle_call({:start_device_deletion, timestamp}, _from, state) do
     timeout = Config.data_updater_deactivation_interval_ms!()
