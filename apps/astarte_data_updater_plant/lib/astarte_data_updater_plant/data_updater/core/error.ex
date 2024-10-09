@@ -151,10 +151,10 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
   def continue_error(context, error, opts) do
     %{
       state: state,
-      timestamp: timestamp,
-      payload: payload
+      timestamp: timestamp
     } = context
 
+    payload = Map.get(context, :payload)
     interface = Map.get(context, :interface, "")
     path = Map.get(context, :path, "")
 
@@ -172,6 +172,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
     telemetry_name = Map.get(error, :telemetry_name, default_telemetry_name)
     telemetry_value = Map.get(error, :telemetry_value, %{})
     telemetry_meta = Map.get(error, :telemetry_metadata, %{realm: state.realm})
+    extra_error_metadata = Map.get(error, :extra_error_metadata, %{})
 
     update_stats = Keyword.get(opts, :update_stats, true)
     execute_error_triggers = Keyword.get(opts, :execute_error_triggers, true)
@@ -179,13 +180,21 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
     :telemetry.execute(telemetry_name, telemetry_value, telemetry_meta)
 
     if execute_error_triggers do
-      base64_payload = Base.encode64(payload)
-
-      error_metadata = %{
-        "interface" => inspect(interface),
-        "path" => inspect(path),
-        "base64_payload" => base64_payload
+      metadata = %{
+        "interface" => interface != "",
+        "path" => path != "",
+        "base64_payload" => payload != nil
       }
+
+      error_metadata =
+        metadata
+        |> Enum.filter(fn {_key, included} -> included end)
+        |> Map.new(fn
+          {"base64_payload", true} -> {"base64_payload", Base.encode64(payload)}
+          {"interface", true} -> {"interface", inspect(interface)}
+          {"path", true} -> {"path", inspect(path)}
+        end)
+        |> Map.merge(extra_error_metadata)
 
       Core.Trigger.execute_device_error_triggers(
         state,

@@ -54,7 +54,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.IntrospectionHandler do
           logger_metadata: [tag: "invalid_introspection"],
           error_name: "invalid_introspection",
           error: :invalid_introspection,
-          telemetry_path: [:astarte, :data_updater_plant, :data_updater, :discarded_introspection]
+          telemetry_name: [:astarte, :data_updater_plant, :data_updater, :discarded_introspection]
         }
 
         Core.Error.handle_error_mississippi(context, error)
