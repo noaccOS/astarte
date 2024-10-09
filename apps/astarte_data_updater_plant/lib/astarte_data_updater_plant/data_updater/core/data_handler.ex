@@ -33,12 +33,11 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
   alias Astarte.DataUpdaterPlant.DataUpdater.PayloadsDecoder
   alias Astarte.DataUpdaterPlant.DataUpdater.Queries
   alias Astarte.DataUpdaterPlant.DataUpdater.State
-  alias Astarte.DataUpdaterPlant.MessageTracker
   alias Astarte.DataUpdaterPlant.TriggersHandler
 
   require Logger
 
-  def handle_data(state, interface, path, payload, message_id, timestamp) do
+  def handle_data(state, interface, path, payload, timestamp) do
     hw_id = Device.encode_device_id(state.device_id)
 
     context = %{
@@ -46,7 +45,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
       interface: interface,
       path: path,
       payload: payload,
-      message_id: message_id,
       timestamp: timestamp,
       hardware_id: hw_id,
       value_timestamp: nil,
@@ -141,20 +139,19 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
     error = %{
       message: "Tried to unset a property with `allow_unset`=false.",
       logger_metadata: [tag: "unset_not_allowed"],
-      error_name: "unset_not_allowed"
+      error_name: "unset_not_allowed",
+      error: :unset_not_allowed
     }
 
     # with `unset_not_allowed` we do not want to update the stats
-    Core.Error.handle_error(context, error, update_stats: false)
+    Core.Error.handle_error_mississippi(context, error, update_stats: false)
   end
 
   defp handle_result(:ok, context) do
     %{
       state: state,
       path: path,
-      payload: payload,
       interface: interface,
-      message_id: message_id,
       interface_descriptor: interface_descriptor,
       db_max_ttl: db_max_ttl
     } = context
@@ -166,18 +163,8 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
     paths_cache = Cache.put(state.paths_cache, {interface, path}, %CachedPath{}, db_max_ttl)
     state = %{state | paths_cache: paths_cache}
 
-    MessageTracker.ack_delivery(state.message_tracker, message_id)
-
-    :telemetry.execute(
-      [:astarte, :data_updater_plant, :data_updater, :processed_message],
-      %{},
-      %{
-        realm: state.realm,
-        interface_type: interface_descriptor.type
-      }
-    )
-
-    update_stats(state, interface, interface_descriptor.major_version, path, payload)
+    continue_arg = {:processed_message, context}
+    {:ack, :ok, state, {:continue, continue_arg}}
   end
 
   defp maybe_insert_path(context, interface_descriptor, mapping) do
@@ -230,10 +217,14 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
     error = %{
       message: "Tried to unset a datastream.",
       error_name: "unset_on_datastream",
-      logger_metadata: [tag: "unset_on_datastream"]
+      logger_metadata: [tag: "unset_on_datastream"],
+      error: :unset_on_datastream
     }
 
-    Core.Error.handle_error(context, error, ask_clean_session: false, update_stats: false)
+    Core.Error.handle_error_mississippi(context, error,
+      ask_clean_session: false,
+      update_stats: false
+    )
   end
 
   defp can_set_to_value(_context, _descriptor, _value), do: :ok
@@ -252,20 +243,20 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
 
     case cache_miss do
       {:error, :interface_loading_failed} ->
-        # Track interface cache miss
+        error = %{
+          message: "Cannot load interface: #{interface}.",
+          logger_metadata: [tag: "interface_loading_failed"],
+          error_name: "interface_loading_failed",
+          error: :interface_loading_failed
+        }
+
         :telemetry.execute(
           [:astarte, :data_updater_plant, :data_handler, :interface_cache_miss],
           %{},
           %{realm: state.realm, interface: interface, result: "failed"}
         )
 
-        error = %{
-          message: "Cannot load interface: #{interface}.",
-          logger_metadata: [tag: "interface_loading_failed"],
-          error_name: "interface_loading_failed"
-        }
-
-        Core.Error.handle_error(context, error)
+        Core.Error.handle_error_mississippi(context, error)
 
       {:ok, descriptor, state} ->
         # Track successful interface cache hit or successful load
@@ -292,19 +283,21 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
         error = %{
           message: "Mapping not found for #{interface}#{path}. Maybe outdated introspection?",
           logger_metadata: [tag: "mapping_not_found"],
-          error_name: "mapping_not_found"
+          error_name: "mapping_not_found",
+          error: :mapping_not_found
         }
 
-        Core.Error.handle_error(context, error)
+        Core.Error.handle_error_mississippi(context, error)
 
       {:guessed, _guessed_endpoints} ->
         error = %{
           message: "Mapping guessed for #{interface}#{path}. Maybe outdated introspection?",
           logger_metadata: [tag: "ambiguous_path"],
-          error_name: "ambiguous_path"
+          error_name: "ambiguous_path",
+          error: :ambiguous_path
         }
 
-        Core.Error.handle_error(context, error)
+        Core.Error.handle_error_mississippi(context, error)
 
       ok ->
         ok
@@ -320,10 +313,11 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
         message:
           "Invalid BSON base64-encoded payload: #{inspect(Base.encode64(payload))} sent to #{interface}#{path}.",
         logger_metadata: [tag: "undecodable_bson_payload"],
-        error_name: "undecodable_bson_payload"
+        error_name: "undecodable_bson_payload",
+        error: :undecodable_bson_payload
       }
 
-      Core.Error.handle_error(context, error)
+      Core.Error.handle_error_mississippi(context, error)
     end
   end
 
@@ -395,10 +389,11 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
     error = %{
       message: message,
       logger_metadata: [tag: tag],
-      error_name: error_name
+      error_name: error_name,
+      error: :cannot_write_on_server_owned_interface
     }
 
-    Core.Error.handle_error(context, error)
+    Core.Error.handle_error_mississippi(context, error)
   end
 
   defp validate_value_type(context, interface_descriptor, mapping, value) do
@@ -420,30 +415,33 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
           message:
             "Received invalid value: #{inspect(Base.encode64(payload))} sent to #{interface}#{path}.",
           logger_metadata: [tag: "unexpected_value_type"],
-          error_name: "unexpected_value_type"
+          error_name: "unexpected_value_type",
+          error: :unexpected_value_type
         }
 
-        Core.Error.handle_error(context, error)
+        Core.Error.handle_error_mississippi(context, error)
 
       {:error, :unexpected_object_key} ->
         error = %{
           message:
             "Received object with unexpected key, object base64 is: #{inspect(Base.encode64(payload))} sent to #{interface}#{path}.",
-          logger_metadata: [tag: "unexpected_value_type"],
-          error_name: "unexpected_value_type"
+          logger_metadata: [tag: "unexpected_object_key"],
+          error_name: "unexpected_object_key",
+          error: :unexpected_value_type
         }
 
-        Core.Error.handle_error(context, error)
+        Core.Error.handle_error_mississippi(context, error)
 
       {:error, :value_size_exceeded} ->
         error = %{
           message:
             "Received huge base64-encoded payload: #{inspect(Base.encode64(payload))} sent to #{interface}#{path}.",
           logger_metadata: [tag: "value_size_exceeded"],
-          error_name: "value_size_exceeded"
+          error_name: "value_size_exceeded",
+          error: :value_size_exceeded
         }
 
-        Core.Error.handle_error(context, error)
+        Core.Error.handle_error_mississippi(context, error)
 
       :ok ->
         :ok

@@ -40,6 +40,8 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   @msg_type_header "x_astarte_msg_type"
   @ip_header "x_astarte_remote_ip"
   @internal_path_header "x_astarte_internal_path"
+  @interface_header "x_astarte_interface"
+  @path_header "x_astarte_path"
 
   use GenServer
 
@@ -88,6 +90,10 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
 
       "introspection" ->
         handle_introspection(state, payload, timestamp)
+
+      "data" ->
+        %{@interface_header => interface, @path_header => path} = headers
+        handle_data(state, interface, path, payload, timestamp)
 
       _ ->
         # Ack all messages for now
@@ -242,6 +248,36 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     {:ok, new_state}
   end
 
+  @impl true
+  def handle_continue({:processed_message, context}, state) do
+    %{
+      interface: interface,
+      interface_descriptor: interface_descriptor,
+      path: path,
+      payload: payload
+    } = context
+
+    :telemetry.execute(
+      [:astarte, :data_updater_plant, :data_updater, :processed_message],
+      %{},
+      %{
+        realm: state.realm,
+        interface_type: interface_descriptor.type
+      }
+    )
+
+    new_state =
+      Core.DataHandler.update_stats(
+        state,
+        interface,
+        interface_descriptor.major_version,
+        path,
+        payload
+      )
+
+    {:ok, new_state}
+  end
+
   def start_device_deletion(state, timestamp) do
     # Device deletion is among time-based actions
     new_state = TimeBasedActions.execute_time_based_actions(state, timestamp)
@@ -249,14 +285,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     {:ok, new_state}
   end
 
-  def handle_data(%State{discard_messages: true} = state, _, _, _, message_id, _) do
-    MessageTracker.discard(state.message_tracker, message_id)
-    state
+  def handle_data(%State{discard_messages: true} = state, _, _, _, _) do
+    {:ack, :discard_messages, state}
   end
 
-  def handle_data(state, interface, path, payload, message_id, timestamp) do
+  def handle_data(state, interface, path, payload, timestamp) do
     TimeBasedActions.execute_time_based_actions(state, timestamp)
-    |> Core.DataHandler.handle_data(interface, path, payload, message_id, timestamp)
+    |> Core.DataHandler.handle_data(interface, path, payload, timestamp)
   end
 
   defdelegate handle_capabilities(state, capabilities, message_id, timestamp),
