@@ -30,8 +30,11 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   alias Astarte.DataUpdaterPlant.DataUpdater.State
   alias Astarte.DataUpdaterPlant.MessageTracker
   alias Astarte.DataUpdaterPlant.TimeBasedActions
+  alias Astarte.DataUpdaterPlant.TriggerPolicy.Queries, as: PolicyQueries
   alias Astarte.DataUpdaterPlant.TriggersHandler
-
+  alias Astarte.DataUpdaterPlant.ValueMatchOperators
+  alias Astarte.RPC.Protocol.DataUpdaterPlant.DeleteVolatileTrigger
+  alias Astarte.RPC.Protocol.DataUpdaterPlant.InstallVolatileTrigger
   require Logger
 
   @msg_type_header "x_astarte_msg_type"
@@ -79,9 +82,17 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   end
 
   @impl true
-  def handle_signal(_, state) do
-    # All is ok for now
-    {:ok, state}
+  def handle_signal(signal, state) do
+    case signal do
+      {:handle_install_volatile_trigger, parent_id, trigger_id, simple_trigger, trigger_target} ->
+        handle_install_volatile_trigger(state, parent_id, trigger_id, simple_trigger, trigger_target)
+
+      {:handle_delete_volatile_trigger, trigger_id} ->
+        handle_delete_volatile_trigger(state, trigger_id)
+
+      _ ->
+        {:ok, state}
+    end
   end
 
   @impl true
@@ -174,6 +185,31 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     new_state = %{new_state | connected: true, last_seen_message: timestamp}
 
     {:ack, :ok, new_state}
+  end
+
+  defp handle_install_volatile_trigger(%State{discard_messages: true} = state, _) do
+    # Don't care
+    {:ok, state}
+  end
+
+  defp handle_install_volatile_trigger(state, parent_id, trigger_id, simple_trigger, trigger_target) do
+    Core.Trigger.handle_install_volatile_trigger(
+      state,
+      parent_id,
+      trigger_id,
+      simple_trigger,
+      trigger_target
+    )
+  end
+
+  def handle_delete_volatile_trigger(%State{discard_messages: true} = state, _) do
+    # Don't care
+    {:ok, state}
+  end
+
+  def handle_delete_volatile_trigger(state, trigger_id) do
+    state = Core.Trigger.handle_delete_volatile_trigger(state, trigger_id)
+    {:ok, state}
   end
 
   def handle_internal(state, path, payload, message_id, timestamp) do

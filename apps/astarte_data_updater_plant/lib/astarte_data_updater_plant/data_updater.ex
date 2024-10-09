@@ -319,24 +319,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater do
     end
   end
 
-  def verify_device_exists(realm_name, encoded_device_id) do
-    with {:ok, decoded_device_id} <- Device.decode_device_id(encoded_device_id),
-         # TODO this could be a bang!
-         {:ok, exists?} <- Queries.check_device_exists(realm_name, decoded_device_id) do
-      if exists? do
-        :ok
-      else
-        _ =
-          Logger.warning(
-            "Device #{encoded_device_id} in realm #{realm_name} does not exist.",
-            tag: "device_does_not_exist"
-          )
-
-        {:error, :device_does_not_exist}
-      end
-    end
-  end
-
   @doc """
   Runs a `function` that needs a `dup` and `message_tracker` reference.
 
@@ -345,8 +327,9 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater do
   - the `message_tracker` could not be found or started
   - the `data_updater` could not be found or started
   """
-  def with_dup_and_message_tracker(realm, device_id, function) do
-    with :ok <- verify_device_exists(realm, device_id),
+  def with_dup_and_message_tracker(realm, encoded_device_id, function) do
+    with {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
+         :ok <- verify_device_exists(realm, device_id),
          {:ok, message_tracker} <- fetch_message_tracker(realm, device_id),
          {:ok, dup} <- fetch_data_updater_process(realm, device_id, message_tracker) do
       function.(dup, message_tracker)
