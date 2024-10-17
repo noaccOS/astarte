@@ -18,22 +18,22 @@
       sizes="16x16"
     />
     <style>
-    html {
-      box-sizing: border-box;
-      overflow: -moz-scrollbars-vertical;
-      overflow-y: scroll;
-    }
+      html {
+        box-sizing: border-box;
+        overflow: -moz-scrollbars-vertical;
+        overflow-y: scroll;
+      }
 
-    *,
-    *:before,
-    *:after {
-      box-sizing: inherit;
-    }
+      *,
+      *:before,
+      *:after {
+        box-sizing: inherit;
+      }
 
-    body {
-      margin: 0;
-      background: #fafafa;
-    }
+      body {
+        margin: 0;
+        background: #fafafa;
+      }
     </style>
   </head>
 
@@ -43,41 +43,37 @@
     <script src="./swagger-ui-bundle.js"></script>
     <script src="./swagger-ui-standalone-preset.js"></script>
     <script>
-    window.onload = function() {
-      // Begin Swagger UI call region
-      const ui = SwaggerUIBundle({
-        urls: [
-          {
-            name: "AppEngine API",
-            url:
-              "https://raw.githubusercontent.com/astarte-platform/astarte/v1.2.0/apps/astarte_appengine_api/priv/static/astarte_appengine_api.yaml",
-          },
-          {
-            name: "Realm Management API",
-            url:
-              "https://raw.githubusercontent.com/astarte-platform/astarte/v1.2.0/apps/astarte_realm_management_api/priv/static/astarte_realm_management_api.yaml",
-          },
-          {
-            name: "Pairing API",
-            url:
-              "https://raw.githubusercontent.com/astarte-platform/astarte/v1.2.0/apps/astarte_pairing/priv/static/astarte_pairing.yaml",
-          },
-          {
-            name: "Housekeeping API",
-            url:
-              "https://raw.githubusercontent.com/astarte-platform/astarte/v1.2.0/apps/astarte_housekeeping_api/priv/static/astarte_housekeeping_api.yaml",
-          },
-        ],
-        dom_id: "#swagger-ui",
-        deepLinking: true,
-        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
-        plugins: [SwaggerUIBundle.plugins.DownloadUrl],
-        layout: "StandaloneLayout",
-      });
-      // End Swagger UI call region
+      window.onload = function () {
+        // Begin Swagger UI call region
+        const ui = SwaggerUIBundle({
+          urls: [
+            {
+              name: "AppEngine API",
+              url: "https://raw.githubusercontent.com/astarte-platform/astarte/master/apps/astarte_appengine_api/priv/static/astarte_appengine_api.yaml",
+            },
+            {
+              name: "Realm Management API",
+              url: "https://raw.githubusercontent.com/astarte-platform/astarte/master/apps/astarte_realm_management_api/priv/static/astarte_realm_management_api.yaml",
+            },
+            {
+              name: "Pairing API",
+              url: "https://raw.githubusercontent.com/astarte-platform/astarte/master/apps/astarte_pairing_api/priv/static/astarte_pairing_api.yaml",
+            },
+            {
+              name: "Housekeeping API",
+              url: "https://raw.githubusercontent.com/astarte-platform/astarte/master/apps/astarte_housekeeping_api/priv/static/astarte_housekeeping_api.yaml",
+            },
+          ],
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+          layout: "StandaloneLayout",
+        });
+        // End Swagger UI call region
 
-      window.ui = ui;
-    };
+        window.ui = ui;
+      };
     </script>
   </body>
 </html>
