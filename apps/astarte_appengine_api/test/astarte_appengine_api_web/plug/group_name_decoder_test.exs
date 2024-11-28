@@ -25,7 +25,7 @@ defmodule Astarte.AppEngine.APIWeb.Plug.GroupNameDecoderTest do
 
   @tag issue: 904
   property "call/2 decode path" do
-    check all raw <- GroupTestGenerator.group_name() do
+    check all(raw <- GroupTestGenerator.group_name()) do
       conn = build_conn()
       # Normally, phx does encoding
       encoded =

@@ -6,23 +6,7 @@ config :astarte_appengine_api, Astarte.AppEngine.APIWeb.Endpoint,
   http: [port: 4001],
   server: false
 
-config :logger, :console,
-  format: {PrettyLog.UserFriendlyFormatter, :format},
-  metadata: [
-    :method,
-    :request_path,
-    :status_code,
-    :elapsed,
-    :realm,
-    :group_name,
-    :device_alias,
-    :device_id,
-    :inteface,
-    :path,
-    :function,
-    :request_id,
-    :tag
-  ]
+config :logger, :default_handler, false
 
 config :astarte_rpc, :amqp_connection, host: System.get_env("RABBITMQ_HOST") || "rabbitmq"
 

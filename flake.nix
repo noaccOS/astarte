@@ -13,14 +13,25 @@
       inputs.flake-utils.follows = "flake-utils";
     };
   };
-  outputs = { self, nixpkgs, elixir-utils, flake-utils, ... }:
+  outputs =
     {
-      overlays.default = elixir-utils.lib.asdfOverlay { toolVersions = ./.tool-versions; };
-    } //
-    flake-utils.lib.eachSystem elixir-utils.lib.defaultSystems (system:
-      let pkgs = import nixpkgs { inherit system; overlays = [ self.overlays.default ]; };
-      in {
-        devShells.default = pkgs.elixirDevShell;
+      nixpkgs,
+      elixir-utils,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachSystem elixir-utils.lib.defaultSystems (
+      system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+      in
+      {
+        devShells.default = pkgs.callPackage elixir-utils.lib.asdfDevShell {
+          toolVersions = ./.tool-versions;
+          packages = [ pkgs.gleam ];
+          wxSupport = false;
+        };
         formatter = pkgs.nixpkgs-fmt;
-      });
+      }
+    );
 }

@@ -18,14 +18,22 @@
 defmodule Astarte.AppEngine.API.Mixfile do
   use Mix.Project
 
+  @app :astarte_appengine_api
+
   def project do
     [
-      app: :astarte_appengine_api,
+      app: @app,
       elixir: "~> 1.15",
       version: "1.3.0-dev",
+      archives: [mix_gleam: "~> 0.6.2"],
+      erlc_paths: ["build/dev/erlang/#{@app}/_gleam_artefacts", "build/dev/erlang/#{@app}/build"],
+      erlc_include_path: "build/dev/erlang/#{@app}/include",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
+      compilers: [:gleam | Mix.compilers()],
+      prune_code_paths: false,
+      aliases: ["deps.get": ["deps.get", "gleam.deps.get"]],
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
@@ -69,8 +77,8 @@ defmodule Astarte.AppEngine.API.Mixfile do
 
   defp astarte_required_modules(_) do
     [
-      {:astarte_core, "~> 1.2"},
-      {:astarte_data_access, "~> 1.2"},
+      {:astarte_core, github: "astarte-platform/astarte_core"},
+      {:astarte_data_access, path: "/home/francesco/src/seco/astarte_data_access"},
       {:astarte_rpc, "~> 1.2"}
     ]
   end
@@ -84,6 +92,8 @@ defmodule Astarte.AppEngine.API.Mixfile do
       {:phoenix_ecto, "~> 4.0"},
       {:phoenix_view, "~> 2.0"},
       {:gettext, "~> 0.24"},
+      {:gleam_stdlib, "~> 0.45"},
+      {:gleeunit, "~> 1.0", only: [:dev, :test], runtime: false},
       {:plug_cowboy, "~> 2.1"},
       {:jason, "~> 1.2"},
       {:cors_plug, "~> 2.0"},
@@ -93,7 +103,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
       # Required by :phoenix_swagger, otherwise it fails finding ex_json_schema.app
       {:ex_json_schema, "~> 0.7"},
       {:phoenix_swagger, "~> 0.8"},
-      {:xandra, "~> 0.13"},
+      {:xandra, "~> 0.19"},
       {:pretty_log, "~> 0.1"},
       {:plug_logger_with_meta, "~> 0.1"},
       {:telemetry, "~> 0.4"},

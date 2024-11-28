@@ -175,7 +175,7 @@ defmodule Astarte.AppEngine.APIWeb.GroupsControllerTest do
 
     @tag issue: 904
     property "creates the group with / in group name", %{conn: conn} do
-      check all group_name <- GroupTestGenerator.group_name() do
+      check all(group_name <- GroupTestGenerator.group_name()) do
         params = %{
           "group_name" => group_name,
           "devices" => @group_devices
