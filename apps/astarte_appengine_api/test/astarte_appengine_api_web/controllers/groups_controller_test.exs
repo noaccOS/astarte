@@ -1,7 +1,7 @@
 #
 # This file is part of Astarte.
 #
-# Copyright 2019 Ispirata Srl
+# Copyright 2019 - 2025 SECO Mind Srl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ defmodule Astarte.AppEngine.APIWeb.GroupsControllerTest do
 
     @tag issue: 904
     property "creates the group with / in group name", %{conn: conn} do
-      check all group_name <- GroupTestGenerator.group_name() do
+      check all(group_name <- GroupTestGenerator.group_name()) do
         params = %{
           "group_name" => group_name,
           "devices" => @group_devices
