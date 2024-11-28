@@ -164,6 +164,10 @@ defmodule Astarte.AppEngine.API.DeviceTest do
     :ok
   end
 
+  test "gleam" do
+    assert Device.from_gleam(3, 4) == 7
+  end
+
   test "list_interfaces/2 returns all interfaces" do
     {:ok, result} = Device.list_interfaces("autotestrealm", "f0VMRgIBAQAAAAAAAAAAAA")
 
