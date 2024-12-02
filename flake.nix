@@ -28,6 +28,7 @@
       {
         devShells.default = pkgs.callPackage elixir-utils.lib.asdfDevShell {
           toolVersions = ./.tool-versions;
+          lsp = pkgs.lexical;
           packages = [ pkgs.gleam ];
           wxSupport = false;
         };

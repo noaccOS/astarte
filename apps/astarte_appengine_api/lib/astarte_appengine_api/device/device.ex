@@ -44,6 +44,7 @@ defmodule Astarte.AppEngine.API.Device do
   alias Ecto.Changeset
   alias Astarte.Core.CQLUtils
   require Logger
+  require IEx
 
   import Ecto.Query
 
@@ -795,6 +796,7 @@ defmodule Astarte.AppEngine.API.Device do
         # TODO: we can do this by using just one query without any filter on the endpoint
         value =
           retrieve_endpoint_values(
+            realm_name,
             client,
             device_id,
             interface_row.aggregation,
@@ -859,6 +861,7 @@ defmodule Astarte.AppEngine.API.Device do
 
         value =
           retrieve_endpoint_values(
+            realm_name,
             client,
             device_id,
             :individual,
@@ -903,6 +906,7 @@ defmodule Astarte.AppEngine.API.Device do
       |> Repo.get_by!(%{interface_id: interface_row.interface_id, endpoint_id: endpoint_id})
 
     retrieve_endpoint_values(
+      realm_name,
       client,
       device_id,
       :individual,
@@ -940,13 +944,13 @@ defmodule Astarte.AppEngine.API.Device do
         endpoint_id: endpoint.endpoint_id
       })
 
-
     endpoint_rows =
       Queries.retrieve_all_endpoints_for_interface!(realm_name, interface_row.interface_id)
       |> Repo.all()
 
     interface_values =
       retrieve_endpoint_values(
+        realm_name,
         client,
         device_id,
         :object,
@@ -1005,6 +1009,7 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   defp retrieve_endpoint_values(
+         realm_name,
          client,
          device_id,
          :individual,
@@ -1080,6 +1085,7 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   defp retrieve_endpoint_values(
+         realm_name,
          client,
          device_id,
          :object,
@@ -1118,6 +1124,7 @@ defmodule Astarte.AppEngine.API.Device do
         with {:ok,
               %Astarte.AppEngine.API.Device.InterfaceValues{data: values, metadata: metadata}} <-
                retrieve_endpoint_values(
+                 realm_name,
                  client,
                  device_id,
                  :object,
@@ -1145,6 +1152,7 @@ defmodule Astarte.AppEngine.API.Device do
           Enum.reduce(paths, %{}, fn a_path, values_map ->
             {:ok, %Astarte.AppEngine.API.Device.InterfaceValues{data: values}} =
               retrieve_endpoint_values(
+                realm_name,
                 client,
                 device_id,
                 :object,
@@ -1173,7 +1181,8 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   defp retrieve_endpoint_values(
-         client,
+         realm_name,
+         _client,
          device_id,
          :object,
          :datastream,
@@ -1185,48 +1194,55 @@ defmodule Astarte.AppEngine.API.Device do
        ) do
     # FIXME: reading result wastes atoms: new atoms are allocated every time a new table is seen
     # See cqerl_protocol.erl:330 (binary_to_atom), strings should be used when dealing with large schemas
-    {columns, column_metadata, downsample_column_atom} =
-      Enum.reduce(endpoint_rows, {"", %{}, nil}, fn endpoint,
-                                                    {query_acc, atoms_map,
-                                                     prev_downsample_column_atom} ->
-        endpoint_name = endpoint.endpoint
-        column_name = CQLUtils.endpoint_to_db_column_name(endpoint_name)
+    # https://github.com/elixir-ecto/ecto/pull/4384
+    endpoints =
+      endpoint_rows
+      |> Enum.map(
+        &%{
+          column: &1.endpoint |> CQLUtils.endpoint_to_db_column_name() |> String.to_atom(),
+          pretty_name: &1.endpoint |> String.split("/") |> List.last(),
+          value_type: &1.value_type
+        }
+      )
 
-        value_type = endpoint.value_type
+    metadata = fn endpoint -> Map.take(endpoint, [:pretty_name, :value_type]) end
+    columns = endpoints |> Enum.map(& &1.column)
+    endpoint_metadata = endpoints |> Map.new(&{&1.column, metadata.(&1)})
 
-        next_query_acc = "#{query_acc} #{column_name}, "
-        column_atom = String.to_atom(column_name)
-        pretty_name = column_pretty_name(endpoint_name)
+    # The old implementation used the latest element it found for the downsample column.
+    # Could we just drop the reverse and consider the first instead?
+    downsample_column =
+      endpoints
+      |> Enum.reverse()
+      |> Enum.find_value(&(&1.pretty_name == opts.downsample_key && &1.column))
 
-        metadata = %{pretty_name: pretty_name, value_type: value_type}
-        next_atom_map = Map.put(atoms_map, column_atom, metadata)
+    timestamp_column = timestamp_column(opts.explicit_timestamp)
+    columns = [timestamp_column | columns]
 
-        if opts.downsample_key == pretty_name do
-          {next_query_acc, next_atom_map, column_atom}
-        else
-          {next_query_acc, next_atom_map, prev_downsample_column_atom}
-        end
-      end)
-
-    {:ok, count, values} =
+    # {:ok, count, values} =
+    query =
       Queries.retrieve_object_datastream_values(
-        client,
+        realm_name,
         device_id,
         interface_row,
         path,
-        columns,
+        timestamp_column,
         opts
       )
+
+    values = query |> select(^columns) |> Repo.all()
+    count = query |> Repo.aggregate(:count, timestamp_column)
 
     values
     |> maybe_downsample_to(count, :object, %InterfaceValuesOptions{
       opts
-      | downsample_key: downsample_column_atom
+      | downsample_key: downsample_column
     })
-    |> pack_result(:object, :datastream, column_metadata, opts)
+    |> pack_result(:object, :datastream, endpoint_metadata, opts)
   end
 
   defp retrieve_endpoint_values(
+         realm_name,
          client,
          device_id,
          :individual,
@@ -1254,6 +1270,7 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   defp retrieve_endpoint_values(
+         realm_name,
          client,
          device_id,
          :individual,
@@ -1348,13 +1365,7 @@ defmodule Astarte.AppEngine.API.Device do
          explicit_timestamp: explicit_timestamp
        })
        when downsampled_size > 2 do
-    timestamp_column =
-      if explicit_timestamp do
-        :value_timestamp
-      else
-        :reception_timestamp
-      end
-
+    timestamp_column = timestamp_column(explicit_timestamp)
     avg_bucket_size = max(1, (count - 2) / (downsampled_size - 2))
 
     sample_to_x_fun = fn sample -> Keyword.get(sample, timestamp_column) end
@@ -1508,12 +1519,7 @@ defmodule Astarte.AppEngine.API.Device do
          column_metadata,
          %{format: "table"} = opts
        ) do
-    timestamp_column =
-      if opts.explicit_timestamp do
-        :value_timestamp
-      else
-        :reception_timestamp
-      end
+    timestamp_column = timestamp_column(opts.explicit_timestamp)
 
     {_cols_count, columns, reverse_table_header} =
       Queries.first_result_row(values)
@@ -1572,12 +1578,7 @@ defmodule Astarte.AppEngine.API.Device do
          column_metadata,
          %{format: "disjoint_tables"} = opts
        ) do
-    timestamp_column =
-      if opts.explicit_timestamp do
-        :value_timestamp
-      else
-        :reception_timestamp
-      end
+    timestamp_column = timestamp_column(opts.explicit_timestamp)
 
     reversed_columns_map =
       Enum.reduce(values, %{}, fn value, columns_acc ->
@@ -1629,12 +1630,17 @@ defmodule Astarte.AppEngine.API.Device do
          column_metadata,
          %{format: "structured"} = opts
        ) do
-    timestamp_column =
-      if opts.explicit_timestamp do
-        :value_timestamp
-      else
-        :reception_timestamp
-      end
+    timestamp_column = timestamp_column(opts.explicit_timestamp)
+
+    # WIP FROM HERE
+    values_with_metadata =
+
+      
+
+    cacca =
+      values
+      |> Map.delete(timestamp_column)
+      |> Map.take(column_metadata |> Map.keys)
 
     values_list =
       for value <- values do
@@ -1694,4 +1700,8 @@ defmodule Astarte.AppEngine.API.Device do
         [allow_bigintegers: true]
     end
   end
+
+  defp timestamp_column(true = _explicit_timestamp), do: :value_timestamp
+  defp timestamp_column(false = _explicit_timestamp), do: :reception_timestamp
+  defp timestamp_column(nil = _explicit_timestamp), do: :reception_timestamp
 end
