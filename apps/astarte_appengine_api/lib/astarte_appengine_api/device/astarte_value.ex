@@ -51,10 +51,15 @@ defmodule Astarte.AppEngine.API.Device.AstarteValue do
   end
 
   def to_json_friendly(value, :datetime, opts) do
-    if opts[:keep_milliseconds] do
-      value
-    else
-      DateTime.from_unix!(value, :millisecond)
+    cond do
+      opts[:keep_milliseconds] ->
+        value
+
+      is_integer(value) ->
+        DateTime.from_unix!(value, :millisecond)
+
+      true ->
+        DateTime.truncate(value, :millisecond)
     end
   end
 
