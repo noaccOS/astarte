@@ -50,15 +50,32 @@ defmodule Astarte.DataUpdaterPlant.Application do
     dup_xandra_opts = Keyword.put(xandra_options, :name, :xandra)
 
     children = [
-      Astarte.DataUpdaterPlantWeb.Telemetry,
+      # Astarte.DataUpdaterPlantWeb.Telemetry,
       {Xandra.Cluster, dup_xandra_opts},
       {Astarte.DataAccess, data_access_opts},
       Astarte.DataUpdaterPlant.DataPipelineSupervisor,
-      {Mississippi.Consumer, mississippi_consumer_opts!()}
+      {Cluster.Supervisor,
+       [cluster_topologies(), [name: Mississippi.Consumer.ClusterSupervisor]]},
+      # {Mississippi.Consumer, mississippi_consumer_opts!()}
     ]
 
     opts = [strategy: :one_for_one, name: Astarte.DataUpdaterPlant.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  def cluster_topologies do
+    [
+      gossip: [
+        strategy: Cluster.Strategy.Gossip,
+        debug: true,
+        config: [
+          port: 45892,
+          if_addr: "0.0.0.0",
+          multicast_addr: "255.255.255.255",
+          broadcast_only: true
+        ]
+      ]
+    ]
   end
 
   defp mississippi_consumer_opts!() do
