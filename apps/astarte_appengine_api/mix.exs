@@ -78,7 +78,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
   defp astarte_required_modules(_) do
     [
       {:astarte_core, github: "astarte-platform/astarte_core"},
-      {:astarte_data_access, github: "noaccOS/astarte_data_access", ref: "exandra"},
+      {:astarte_data_access, path: "/home/noaccos/src/seco/astarte_data_access"},
       {:astarte_rpc, "~> 1.2"}
     ]
   end
@@ -103,7 +103,6 @@ defmodule Astarte.AppEngine.API.Mixfile do
       # Required by :phoenix_swagger, otherwise it fails finding ex_json_schema.app
       {:ex_json_schema, "~> 0.7"},
       {:phoenix_swagger, "~> 0.8"},
-      {:xandra, "~> 0.19"},
       # {:exandra, github: ""},
       {:pretty_log, "~> 0.1"},
       {:plug_logger_with_meta, "~> 0.1"},
