@@ -20,25 +20,20 @@ defmodule Astarte.AppEngine.API.Device.Queries do
   import Ecto.Query
 
   alias Astarte.AppEngine.API.Config
-  alias Astarte.AppEngine.API.Device.DeviceStatus
   alias Astarte.AppEngine.API.Device.InterfaceValuesOptions
-  alias Astarte.AppEngine.API.Device.InterfaceInfo
   alias Astarte.Core.CQLUtils
-  alias Astarte.Core.Device
-  alias Astarte.Core.InterfaceDescriptor
   alias CQEx.Query, as: DatabaseQuery
   alias CQEx.Result, as: DatabaseResult
 
   alias Astarte.DataAccess.Realms.Device, as: DatabaseDevice
   alias Astarte.DataAccess.Realms.Endpoint, as: DatabaseEndpoint
   alias Astarte.DataAccess.Realms.DeletionInProgress, as: DatabaseDeletionInProgress
-  alias Astarte.DataAccess.Realms.IndividualProperty, as: DatabaseIndividualProperty
   alias Astarte.DataAccess.Realms.IndividualDatastream, as: DatabaseIndividualDatastream
+  alias Astarte.DataAccess.Realms.IndividualProperty, as: DatabaseIndividualProperty
   alias Astarte.DataAccess.Astarte.KvStore
   alias Astarte.DataAccess.Astarte.Realm
 
   require CQEx
-  require IEx
   require Logger
 
   def retrieve_interfaces_list(realm_name) do
@@ -99,297 +94,6 @@ defmodule Astarte.AppEngine.API.Device.Queries do
   def retrieve_all_endpoint_paths!(realm_name, device_id, interface_id, endpoint_id) do
     find_endpoints(realm_name, "individual_properties", device_id, interface_id, endpoint_id)
     |> select([:path])
-  end
-
-  defp get_ttl_string(opts) do
-    with {:ok, value} when is_integer(value) <- Keyword.fetch(opts, :ttl) do
-      "USING TTL #{to_string(value)}"
-    else
-      _any_error ->
-        ""
-    end
-  end
-
-  def insert_path_into_db(
-        db_client,
-        device_id,
-        %InterfaceDescriptor{storage_type: storage_type} = interface_descriptor,
-        endpoint_id,
-        path,
-        value_timestamp,
-        reception_timestamp,
-        opts
-      )
-      when storage_type in [
-             :multi_interface_individual_datastream_dbtable,
-             :one_object_datastream_dbtable
-           ] do
-    # TODO: use received value_timestamp when needed
-    # TODO: :reception_timestamp_submillis is just a place holder right now
-
-    datastream = %DatabaseIndividualDatastream{
-      device_id: device_id,
-      interface_id: interface_descriptor.interface_id,
-      endpoint_id: endpoint_id,
-      path: path,
-      reception_timestamp: reception_timestamp |> div(1000),
-      reception_timestamp_submillis: reception_timestamp |> rem(100),
-      datetime_value: value_timestamp
-    }
-    # wip here
-    query = Exandra.Connection.insert(keyspace, DatabaseIndividualDatastream.__)
-
-    # datastream |> R
-    IEx.pry()
-
-    # insert_statement = """
-    # INSERT INTO individual_properties
-    #     (device_id, interface_id, endpoint_id, path,
-    #     reception_timestamp, reception_timestamp_submillis, datetime_value)
-    # VALUES (:device_id, :interface_id, :endpoint_id, :path, :reception_timestamp,
-    #     :reception_timestamp_submillis, :datetime_value) #{ttl_string};
-    # """
-
-    # insert_query =
-    #   DatabaseQuery.new()
-    #   |> DatabaseQuery.statement(insert_statement)
-    #   |> DatabaseQuery.put(:device_id, device_id)
-    #   |> DatabaseQuery.put(:interface_id, interface_descriptor.interface_id)
-    #   |> DatabaseQuery.put(:endpoint_id, endpoint_id)
-    #   |> DatabaseQuery.put(:path, path)
-    #   |> DatabaseQuery.put(:reception_timestamp, div(reception_timestamp, 1000))
-    #   |> DatabaseQuery.put(:reception_timestamp_submillis, rem(reception_timestamp, 100))
-    #   |> DatabaseQuery.put(:datetime_value, value_timestamp)
-
-    # DatabaseQuery.call!(db_client, insert_query)
-
-    :ok
-  end
-
-  # TODO Copy&pasted from data updater plant, make it a library
-  def insert_value_into_db(
-        db_client,
-        device_id,
-        %InterfaceDescriptor{storage_type: :multi_interface_individual_properties_dbtable} =
-          interface_descriptor,
-        _endpoint_id,
-        endpoint,
-        path,
-        nil,
-        _timestamp,
-        _opts
-      ) do
-    if endpoint.allow_unset == false do
-      _ =
-        Logger.warning("Tried to unset value on allow_unset=false mapping.",
-          tag: "unset_not_allowed"
-        )
-
-      # TODO: should we handle this situation?
-    end
-
-    # TODO: :reception_timestamp_submillis is just a place holder right now
-    unset_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(
-        "DELETE FROM #{interface_descriptor.storage} WHERE device_id=:device_id AND interface_id=:interface_id AND endpoint_id=:endpoint_id AND path=:path"
-      )
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.put(:interface_id, interface_descriptor.interface_id)
-      |> DatabaseQuery.put(:endpoint_id, endpoint.endpoint_id)
-      |> DatabaseQuery.put(:path, path)
-
-    DatabaseQuery.call!(db_client, unset_query)
-
-    :ok
-  end
-
-  # TODO Copy&pasted from data updater plant, make it a library
-  def insert_value_into_db(
-        db_client,
-        device_id,
-        %InterfaceDescriptor{storage_type: :multi_interface_individual_properties_dbtable} =
-          interface_descriptor,
-        endpoint_id,
-        endpoint,
-        path,
-        value,
-        timestamp,
-        opts
-      ) do
-    ttl_string = get_ttl_string(opts)
-
-    # TODO: :reception_timestamp_submillis is just a place holder right now
-    insert_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement("""
-      INSERT INTO #{interface_descriptor.storage}
-        (device_id, interface_id, endpoint_id, path, reception_timestamp,
-          #{CQLUtils.type_to_db_column_name(endpoint.value_type)})
-        VALUES (:device_id, :interface_id, :endpoint_id, :path, :reception_timestamp,
-          :value) #{ttl_string};
-      """)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.put(:interface_id, interface_descriptor.interface_id)
-      |> DatabaseQuery.put(:endpoint_id, endpoint_id)
-      |> DatabaseQuery.put(:path, path)
-      |> DatabaseQuery.put(:reception_timestamp, div(timestamp, 1000))
-      |> DatabaseQuery.put(:reception_timestamp_submillis, div(timestamp, 100))
-      |> DatabaseQuery.put(:value, to_db_friendly_type(value))
-
-    DatabaseQuery.call!(db_client, insert_query)
-
-    :ok
-  end
-
-  # TODO Copy&pasted from data updater plant, make it a library
-  def insert_value_into_db(
-        db_client,
-        device_id,
-        %InterfaceDescriptor{storage_type: :multi_interface_individual_datastream_dbtable} =
-          interface_descriptor,
-        _endpoint_id,
-        endpoint,
-        path,
-        value,
-        timestamp,
-        opts
-      ) do
-    ttl_string = get_ttl_string(opts)
-
-    insert_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement("""
-      INSERT INTO #{interface_descriptor.storage}
-        (device_id, interface_id, endpoint_id, path, value_timestamp, reception_timestamp, reception_timestamp_submillis,
-          #{CQLUtils.type_to_db_column_name(endpoint.value_type)})
-        VALUES (:device_id, :interface_id, :endpoint_id, :path, :value_timestamp, :reception_timestamp,
-          :reception_timestamp_submillis, :value) #{ttl_string};
-      """)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.put(:interface_id, interface_descriptor.interface_id)
-      |> DatabaseQuery.put(:endpoint_id, endpoint.endpoint_id)
-      |> DatabaseQuery.put(:path, path)
-      |> DatabaseQuery.put(:value_timestamp, div(timestamp, 1000))
-      |> DatabaseQuery.put(:reception_timestamp, div(timestamp, 1000))
-      |> DatabaseQuery.put(:reception_timestamp_submillis, rem(timestamp, 100))
-      |> DatabaseQuery.put(:value, to_db_friendly_type(value))
-
-    # TODO: |> DatabaseQuery.consistency(insert_consistency(interface_descriptor, endpoint))
-
-    DatabaseQuery.call!(db_client, insert_query)
-
-    :ok
-  end
-
-  # TODO Copy&pasted from data updater plant, make it a library
-  def insert_value_into_db(
-        db_client,
-        device_id,
-        %InterfaceDescriptor{storage_type: :one_object_datastream_dbtable} = interface_descriptor,
-        _endpoint_id,
-        _mapping,
-        path,
-        value,
-        timestamp,
-        opts
-      ) do
-    ttl_string = get_ttl_string(opts)
-
-    endpoint_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(
-        "SELECT endpoint, value_type FROM endpoints WHERE interface_id=:interface_id;"
-      )
-      |> DatabaseQuery.put(:interface_id, interface_descriptor.interface_id)
-
-    endpoint_rows = DatabaseQuery.call!(db_client, endpoint_query)
-
-    explicit_timestamp_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(
-        "SELECT explicit_timestamp FROM endpoints WHERE interface_id=:interface_id LIMIT 1;"
-      )
-      |> DatabaseQuery.put(:interface_id, interface_descriptor.interface_id)
-
-    [explicit_timestamp: explicit_timestamp] =
-      DatabaseQuery.call!(db_client, explicit_timestamp_query)
-      |> DatabaseResult.head()
-
-    # FIXME: new atoms are created here, we should avoid this. We need to replace CQEx.
-    column_atoms =
-      Enum.reduce(endpoint_rows, %{}, fn endpoint, column_atoms_acc ->
-        endpoint_name =
-          endpoint[:endpoint]
-          |> String.split("/")
-          |> List.last()
-
-        column_name = CQLUtils.endpoint_to_db_column_name(endpoint_name)
-
-        Map.put(column_atoms_acc, endpoint_name, String.to_atom(column_name))
-      end)
-
-    {query_values, placeholders, query_columns} =
-      Enum.reduce(value, {%{}, "", ""}, fn {obj_key, obj_value},
-                                           {query_values_acc, placeholders_acc, query_acc} ->
-        if column_atoms[obj_key] != nil do
-          column_name = CQLUtils.endpoint_to_db_column_name(obj_key)
-
-          db_value = to_db_friendly_type(obj_value)
-          next_query_values_acc = Map.put(query_values_acc, column_atoms[obj_key], db_value)
-          next_placeholders_acc = "#{placeholders_acc} :#{to_string(column_atoms[obj_key])},"
-          next_query_acc = "#{query_acc} #{column_name}, "
-
-          {next_query_values_acc, next_placeholders_acc, next_query_acc}
-        else
-          Logger.warning(
-            "Unexpected object key #{inspect(obj_key)} with value #{inspect(obj_value)}."
-          )
-
-          query_values_acc
-        end
-      end)
-
-    {query_columns, placeholders} =
-      if explicit_timestamp do
-        {"value_timestamp, #{query_columns}", ":value_timestamp, #{placeholders}"}
-      else
-        {query_columns, placeholders}
-      end
-
-    # TODO: :reception_timestamp_submillis is just a place holder right now
-    insert_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement("""
-      INSERT INTO #{interface_descriptor.storage} (device_id, path, #{query_columns} reception_timestamp, reception_timestamp_submillis)
-        VALUES (:device_id, :path, #{placeholders} :reception_timestamp, :reception_timestamp_submillis) #{ttl_string};
-      """)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.put(:path, path)
-      |> DatabaseQuery.put(:value_timestamp, div(timestamp, 1000))
-      |> DatabaseQuery.put(:reception_timestamp, div(timestamp, 1000))
-      |> DatabaseQuery.put(:reception_timestamp_submillis, rem(timestamp, 100))
-      |> DatabaseQuery.merge(query_values)
-
-    # TODO: |> DatabaseQuery.consistency(insert_consistency(interface_descriptor, endpoint))
-
-    DatabaseQuery.call!(db_client, insert_query)
-
-    :ok
-  end
-
-  # TODO Copy&pasted from data updater plant, make it a library
-  defp to_db_friendly_type(array) when is_list(array) do
-    # If we have an array, we convert its elements to a db friendly type
-    Enum.map(array, &to_db_friendly_type/1)
-  end
-
-  defp to_db_friendly_type(%DateTime{} = datetime) do
-    DateTime.to_unix(datetime, :millisecond)
-  end
-
-  defp to_db_friendly_type(value) do
-    value
   end
 
   @device_status_columns_without_device_id [
@@ -882,5 +586,188 @@ defmodule Astarte.AppEngine.API.Device.Queries do
     query
     |> where(^filter_since)
     |> where(^filter_to)
+  end
+
+  def endpoint_mappings(realm_name, device_id, interface_descriptor, endpoint) do
+    keyspace = Realm.keyspace_name(realm_name)
+    interface_id = interface_descriptor.interface_id
+    endpoint_id = endpoint.endpoint_id
+
+    from interface_descriptor.storage,
+      prefix: ^keyspace,
+      where: [
+        device_id: ^device_id,
+        interface_id: ^interface_id,
+        endpoint_id: ^endpoint_id
+      ]
+  end
+
+  def storage_attributes(:multi_interface_individual_datastream_dbtable, args) do
+    %{
+      device_id: device_id,
+      interface_descriptor: interface_descriptor,
+      endpoint: endpoint,
+      path: path,
+      timestamp: timestamp,
+      value: value
+    } = args
+
+    {datetime, timestamp_sub} = timestamp_and_submillis(timestamp)
+    value_column = CQLUtils.type_to_db_column_name(endpoint.value_type) |> String.to_atom()
+
+    struct(
+      DatabaseIndividualDatastream,
+      %{
+        value_column => value,
+        device_id: device_id,
+        interface_id: interface_descriptor.interface_id,
+        endpoint_id: endpoint.endpoint_id,
+        path: path,
+        value_timestamp: datetime,
+        reception_timestamp: datetime,
+        reception_timestamp_submillis: timestamp_sub
+      }
+    )
+  end
+
+  def storage_attributes(:multi_interface_individual_properties_dbtable, args) do
+    %{
+      device_id: device_id,
+      interface_descriptor: interface_descriptor,
+      endpoint: endpoint,
+      path: path,
+      timestamp: timestamp,
+      value: value
+    } = args
+
+    value_column = CQLUtils.type_to_db_column_name(endpoint.value_type) |> String.to_atom()
+
+    struct(
+      DatabaseIndividualProperty,
+      %{
+        value_column => value,
+        device_id: device_id,
+        interface_id: interface_descriptor.interface_id,
+        endpoint_id: endpoint.endpoint_id,
+        path: path,
+        reception_timestamp: timestamp
+      }
+    )
+  end
+
+  def storage_attributes(:one_object_datastream_dbtable, args) do
+    %{
+      device_id: device_id,
+      path: path,
+      timestamp: timestamp,
+      value: value,
+      endpoints: endpoints,
+      explicit_timestamp?: explicit_timestamp?
+    } = args
+
+    # FIXME: new atoms are created here, we should avoid this. We need to replace CQEx.
+    column_meta =
+      endpoints
+      |> Map.new(fn endpoint ->
+        endpoint_name = endpoint.endpoint |> String.split("/") |> List.last()
+        column_name = CQLUtils.endpoint_to_db_column_name(endpoint_name) |> String.to_atom()
+        {endpoint_name, %{name: column_name, type: endpoint.value_type}}
+      end)
+
+    timestamp = timestamp |> DateTime.to_unix(:microsecond)
+    timestamp_ms = timestamp |> div(1000)
+    timestamp_sub = timestamp |> rem(100)
+
+    base_attributes = %{
+      device_id: device_id,
+      path: path
+    }
+
+    base_attributes_types = %{
+      device_id: Astarte.DataAccess.UUID,
+      path: :string
+    }
+
+    timestamp_attributes =
+      if explicit_timestamp? do
+        %{
+          value_timestamp: timestamp_ms,
+          reception_timestamp: timestamp_ms,
+          reception_timestamp_submillis: timestamp_sub
+        }
+      else
+        %{reception_timestamp: timestamp_ms, reception_timestamp_submillis: timestamp_sub}
+      end
+
+    timestamp_attributes_types =
+      if explicit_timestamp? do
+        %{
+          value_timestamp: :utc_datetime_usec,
+          reception_timestamp: :utc_datetime_usec,
+          reception_timestamp_submillis: :utc_datetime_usec
+        }
+      else
+        %{
+          reception_timestamp: :utc_datetime_usec,
+          reception_timestamp_submillis: :utc_datetime_usec
+        }
+      end
+
+    value =
+      value
+      |> Enum.flat_map(fn {key, value} ->
+        # filter map
+        case Map.fetch(column_meta, key) do
+          {:ok, meta} ->
+            %{name: name, type: type} = meta
+            data = %{type: type, value: value}
+            [{name, data}]
+
+          :error ->
+            Logger.warning("Unexpected object key #{inspect(key)} with value #{inspect(value)}.")
+
+            []
+        end
+      end)
+
+    value_attributes = value |> Map.new(fn {column, data} -> {column, data.value} end)
+    value_attributes_types = value |> Map.new(fn {column, data} -> {column, data.type} end)
+
+    data =
+      base_attributes
+      |> Map.merge(timestamp_attributes)
+      |> Map.merge(value_attributes)
+
+    # types =
+    #   base_attributes_types
+    #   |> Map.merge(timestamp_attributes_types)
+    #   |> Map.merge(value_attributes_types)
+
+    # Ecto.Changeset.change({data, types} |> dbg())
+  end
+
+  def to_db_friendly_type(array) when is_list(array) do
+    # If we have an array, we convert its elements to a db friendly type
+    Enum.map(array, &to_db_friendly_type/1)
+  end
+
+  def to_db_friendly_type(%DateTime{} = datetime) do
+    DateTime.to_unix(datetime, :millisecond)
+  end
+
+  def to_db_friendly_type(value) do
+    value
+  end
+
+  def timestamp_and_submillis(%DateTime{} = datetime) do
+    timestamp_sub = datetime |> DateTime.to_unix(:microsecond) |> rem(100)
+    {datetime, timestamp_sub}
+  end
+
+  def timestamp_and_submillis(timestamp) when is_integer(timestamp) do
+    datetime = timestamp |> DateTime.from_unix!(:microsecond)
+    timestamp_sub = timestamp |> rem(100)
+
+    {datetime, timestamp_sub}
   end
 end

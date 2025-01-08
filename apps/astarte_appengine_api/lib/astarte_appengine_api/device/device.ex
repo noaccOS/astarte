@@ -42,7 +42,8 @@ defmodule Astarte.AppEngine.API.Device do
   alias Astarte.DataAccess.Device, as: DeviceQueries
   alias Astarte.DataAccess.Interface, as: InterfaceQueries
   alias Astarte.DataAccess.Mappings
-  alias Astarte.DataAccess.Realms.Device, as: DatabaseDevice
+  alias Astarte.DataAccess.Realms.IndividualProperty, as: DatabaseIndividualProperty
+  alias Astarte.DataAccess.Realms.Endpoint, as: DatabaseEndpoint
   alias Astarte.DataAccess.Repo
   alias Ecto.Changeset
 
@@ -298,9 +299,8 @@ defmodule Astarte.AppEngine.API.Device do
            ) do
       realm_max_ttl = Queries.datastream_maximum_storage_retention(realm_name) |> Repo.one()
 
-      timestamp_micro =
+      now =
         DateTime.utc_now()
-        |> DateTime.to_unix(:microsecond)
 
       db_max_ttl =
         if mapping.database_retention_policy == :use_ttl do
@@ -318,27 +318,26 @@ defmodule Astarte.AppEngine.API.Device do
             [ttl: db_max_ttl]
         end
 
-      Queries.insert_value_into_db(
-        client,
+      insert_value_into_db(
+        realm_name,
         device_id,
         interface_descriptor,
         endpoint_id,
         mapping,
         path,
         value,
-        timestamp_micro,
+        now,
         opts
       )
 
       if interface_descriptor.type == :datastream do
-        Queries.insert_path_into_db(
-          client,
+        insert_path_into_db(
+          realm_name,
           device_id,
           interface_descriptor,
           endpoint_id,
           path,
-          timestamp_micro,
-          div(timestamp_micro, 1000),
+          now,
           opts
         )
       end
@@ -452,9 +451,8 @@ defmodule Astarte.AppEngine.API.Device do
          path,
          raw_value
        ) do
-    timestamp_micro =
+    now =
       DateTime.utc_now()
-      |> DateTime.to_unix(:microsecond)
 
     with {:ok, mappings} <-
            Mappings.fetch_interface_mappings(
@@ -493,26 +491,25 @@ defmodule Astarte.AppEngine.API.Device do
             [ttl: db_max_ttl]
         end
 
-      Queries.insert_value_into_db(
-        client,
+      insert_value_into_db(
+        realm_name,
         device_id,
         interface_descriptor,
         nil,
         nil,
         path,
         value,
-        timestamp_micro,
+        now,
         opts
       )
 
-      Queries.insert_path_into_db(
-        client,
+      insert_path_into_db(
+        realm_name,
         device_id,
         interface_descriptor,
         endpoint_id,
         path,
-        timestamp_micro,
-        div(timestamp_micro, 1000),
+        now,
         opts
       )
 
@@ -758,8 +755,7 @@ defmodule Astarte.AppEngine.API.Device do
   # TODO: we should probably allow delete for every path regardless of the interface type
   # just for maintenance reasons
   def delete_interface_values(realm_name, encoded_device_id, interface, no_prefix_path) do
-    with {:ok, client} <- Database.connect(realm: realm_name),
-         {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
+    with {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
          {:ok, major_version} <-
            DeviceQueries.interface_version(realm_name, device_id, interface),
          {:ok, interface_row} <-
@@ -775,8 +771,8 @@ defmodule Astarte.AppEngine.API.Device do
           endpoint_id: endpoint_id
         })
 
-      Queries.insert_value_into_db(
-        client,
+      insert_value_into_db(
+        realm_name,
         device_id,
         interface_descriptor,
         endpoint_id,
@@ -1279,8 +1275,6 @@ defmodule Astarte.AppEngine.API.Device do
     values = query |> select(^columns) |> Repo.all()
     count = query |> select([d], count(d.value_timestamp)) |> Repo.one!()
 
-    Repo.insert
-
     values
     |> maybe_downsample_to(count, :individual, value_column, opts)
     |> pack_result(:individual, :datastream, endpoint_row, path, opts)
@@ -1695,5 +1689,160 @@ defmodule Astarte.AppEngine.API.Device do
     with {:ok, device} <- Repo.fetch(device_query, device_id, error: :device_not_found) do
       {:ok, DeviceStatus.from_device(device, realm_name)}
     end
+  end
+
+  def insert_path_into_db(
+        realm_name,
+        device_id,
+        %InterfaceDescriptor{storage_type: storage_type} = interface_descriptor,
+        endpoint_id,
+        path,
+        reception_timestamp,
+        opts
+      )
+      when storage_type in [
+             :multi_interface_individual_datastream_dbtable,
+             :one_object_datastream_dbtable
+           ] do
+    keyspace = Realm.keyspace_name(realm_name)
+    ttl = Keyword.get(opts, :ttl)
+    opts = [prefix: keyspace, ttl: ttl]
+
+    {reception_timestamp, timestamp_sub} = Queries.timestamp_and_submillis(reception_timestamp)
+
+    # TODO: use received value_timestamp when needed
+    # TODO: :reception_timestamp_submillis is just a place holder right now
+    %DatabaseIndividualProperty{
+      device_id: device_id,
+      interface_id: interface_descriptor.interface_id,
+      endpoint_id: endpoint_id,
+      path: path,
+      reception_timestamp: reception_timestamp,
+      reception_timestamp_submillis: timestamp_sub,
+      datetime_value: reception_timestamp
+    }
+    |> Repo.insert!(opts)
+
+    :ok
+  end
+
+  # TODO Copy&pasted from data updater plant, make it a library
+  def insert_value_into_db(
+        realm_name,
+        device_id,
+        %InterfaceDescriptor{storage_type: :multi_interface_individual_properties_dbtable} =
+          interface_descriptor,
+        _endpoint_id,
+        endpoint,
+        path,
+        nil,
+        _timestamp,
+        _opts
+      ) do
+    if endpoint.allow_unset == false do
+      _ =
+        Logger.warning("Tried to unset value on allow_unset=false mapping.",
+          tag: "unset_not_allowed"
+        )
+
+      # TODO: should we handle this situation?
+    end
+
+    mapping =
+      Queries.endpoint_mappings(realm_name, device_id, interface_descriptor, endpoint)
+      |> where(path: ^path)
+
+    Repo.delete_all(mapping)
+
+    :ok
+  end
+
+  # TODO Copy&pasted from data updater plant, make it a library
+  def insert_value_into_db(
+        realm_name,
+        device_id,
+        %InterfaceDescriptor{storage_type: storage_type} = interface_descriptor,
+        _endpoint_id,
+        endpoint,
+        path,
+        value,
+        timestamp,
+        opts
+      )
+      when storage_type in [
+             :multi_interface_individual_properties_dbtable,
+             :multi_interface_individual_datastream_dbtable
+           ] do
+    keyspace = Realm.keyspace_name(realm_name)
+    ttl = Keyword.get(opts, :ttl)
+    # TODO: consistency = insert_consistency(interface_descriptor, endpoint)
+    opts = [prefix: keyspace, ttl: ttl]
+
+    args =
+      %{
+        device_id: device_id,
+        interface_descriptor: interface_descriptor,
+        endpoint: endpoint,
+        path: path,
+        timestamp: timestamp,
+        value: value
+      }
+
+    entry = Queries.storage_attributes(storage_type, args)
+
+    Repo.insert(entry, opts)
+    :ok
+  end
+
+  def insert_value_into_db(
+        realm_name,
+        device_id,
+        %InterfaceDescriptor{storage_type: storage_type} = interface_descriptor,
+        _endpoint_id,
+        _mapping,
+        path,
+        value,
+        timestamp,
+        opts
+      )
+      when storage_type == :one_object_datastream_dbtable do
+    keyspace = Realm.keyspace_name(realm_name)
+
+    interface_id = interface_descriptor.interface_id
+
+    endpoints =
+      from(DatabaseEndpoint, prefix: ^keyspace)
+      |> select([:endpoint, :value_type])
+      |> where(interface_id: ^interface_id)
+      |> Repo.all()
+
+    explicit_timestamp? =
+      from(DatabaseEndpoint, prefix: ^keyspace)
+      |> select([e], e.explicit_timestamp)
+      |> where(interface_id: ^interface_id)
+      |> limit(1)
+      |> Repo.one()
+
+    args = %{
+      device_id: device_id,
+      path: path,
+      timestamp: timestamp,
+      value: value,
+      endpoints: endpoints,
+      explicit_timestamp?: explicit_timestamp?
+    }
+
+    object_datastream = Queries.storage_attributes(storage_type, args)
+
+    ttl = Keyword.get(opts, :ttl)
+    # TODO: consistency = insert_consistency(interface_descriptor, endpoint)
+    opts = [prefix: keyspace, ttl: ttl, returning: false]
+
+    # wip here
+    # does not work
+
+    Repo.insert_all(interface_descriptor.storage, [object_datastream], opts)
+
+    :ok
   end
 end

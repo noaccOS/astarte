@@ -78,7 +78,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
   defp astarte_required_modules(_) do
     [
       {:astarte_core, github: "astarte-platform/astarte_core"},
-      {:astarte_data_access, path: "/home/noaccos/src/seco/astarte_data_access"},
+      {:astarte_data_access, path: "/home/francesco/src/seco/astarte_data_access"},
       {:astarte_rpc, "~> 1.2"}
     ]
   end
