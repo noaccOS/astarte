@@ -51,9 +51,9 @@ defmodule Astarte.AppEngine.API.Device do
 
   import Ecto.Query
 
-  def from_gleam(a, b) do
-    :device.sum(a, b)
-  end
+  # def from_gleam(a, b) do
+  #   :device.sum(a, b)
+  # end
 
   def list_devices!(realm_name, params) do
     changeset = DevicesListOptions.changeset(%DevicesListOptions{}, params)
@@ -309,14 +309,7 @@ defmodule Astarte.AppEngine.API.Device do
           realm_max_ttl
         end
 
-      opts =
-        case db_max_ttl do
-          nil ->
-            []
-
-          _ ->
-            [ttl: db_max_ttl]
-        end
+      opts = [ttl: db_max_ttl]
 
       insert_value_into_db(
         realm_name,
@@ -1705,6 +1698,7 @@ defmodule Astarte.AppEngine.API.Device do
              :one_object_datastream_dbtable
            ] do
     keyspace = Realm.keyspace_name(realm_name)
+
     ttl = Keyword.get(opts, :ttl)
     opts = [prefix: keyspace, ttl: ttl]
 
