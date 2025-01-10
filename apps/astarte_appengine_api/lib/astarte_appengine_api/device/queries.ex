@@ -20,20 +20,17 @@ defmodule Astarte.AppEngine.API.Device.Queries do
   import Ecto.Query
 
   alias Astarte.AppEngine.API.Config
-  alias Astarte.AppEngine.API.Device.InterfaceValuesOptions
   alias Astarte.Core.CQLUtils
-  alias CQEx.Query, as: DatabaseQuery
-  alias CQEx.Result, as: DatabaseResult
 
   alias Astarte.DataAccess.Realms.Device, as: DatabaseDevice
   alias Astarte.DataAccess.Realms.Endpoint, as: DatabaseEndpoint
   alias Astarte.DataAccess.Realms.DeletionInProgress, as: DatabaseDeletionInProgress
   alias Astarte.DataAccess.Realms.IndividualDatastream, as: DatabaseIndividualDatastream
   alias Astarte.DataAccess.Realms.IndividualProperty, as: DatabaseIndividualProperty
+  alias Astarte.DataAccess.Realms.Name, as: DatabaseName
   alias Astarte.DataAccess.Astarte.KvStore
   alias Astarte.DataAccess.Astarte.Realm
 
-  require CQEx
   require Logger
 
   def retrieve_interfaces_list(realm_name) do
@@ -157,303 +154,13 @@ defmodule Astarte.AppEngine.API.Device.Queries do
       limit: ^limit
   end
 
-  def device_alias_to_device_id(client, device_alias) do
-    device_id_statement = """
-    SELECT object_uuid
-    FROM names
-    WHERE object_name = :device_alias AND object_type = 1
-    """
+  def device_alias_to_device_id(realm_name, device_alias) do
+    keyspace = Realm.keyspace_name(realm_name)
 
-    device_id_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(device_id_statement)
-      |> DatabaseQuery.put(:device_alias, device_alias)
-      |> DatabaseQuery.consistency(:quorum)
-
-    with {:ok, result} <- DatabaseQuery.call(client, device_id_query),
-         [object_uuid: device_id] <- DatabaseResult.head(result) do
-      {:ok, device_id}
-    else
-      :empty_dataset ->
-        {:error, :device_not_found}
-
-      not_ok ->
-        _ = Logger.warning("Database error: #{inspect(not_ok)}.", tag: "db_error")
-        {:error, :database_error}
-    end
-  end
-
-  def insert_attribute(client, device_id, attribute_key, attribute_value) do
-    insert_attribute_statement = """
-    UPDATE devices
-    SET attributes[:attribute_key] = :attribute_value
-    WHERE device_id = :device_id
-    """
-
-    query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(insert_attribute_statement)
-      |> DatabaseQuery.put(:attribute_key, attribute_key)
-      |> DatabaseQuery.put(:attribute_value, attribute_value)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:each_quorum)
-
-    with {:ok, _result} <- DatabaseQuery.call(client, query) do
-      :ok
-    else
-      %{acc: _, msg: error_message} ->
-        _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-        {:error, :database_error}
-
-      {:error, reason} ->
-        _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-        {:error, :database_error}
-    end
-  end
-
-  def delete_attribute(client, device_id, attribute_key) do
-    retrieve_attribute_statement = """
-    SELECT attributes FROM devices WHERE device_id = :device_id
-    """
-
-    retrieve_attribute_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(retrieve_attribute_statement)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:quorum)
-
-    with {:ok, result} <- DatabaseQuery.call(client, retrieve_attribute_query),
-         [attributes: attributes] <- DatabaseResult.head(result),
-         {^attribute_key, _attribute_value} <-
-           Enum.find(attributes || [], fn m -> match?({^attribute_key, _}, m) end) do
-      delete_attribute_statement = """
-        DELETE attributes[:attribute_key]
-        FROM devices
-        WHERE device_id = :device_id
-      """
-
-      delete_attribute_query =
-        DatabaseQuery.new()
-        |> DatabaseQuery.statement(delete_attribute_statement)
-        |> DatabaseQuery.put(:attribute_key, attribute_key)
-        |> DatabaseQuery.put(:device_id, device_id)
-        |> DatabaseQuery.consistency(:each_quorum)
-
-      case DatabaseQuery.call(client, delete_attribute_query) do
-        {:ok, _result} ->
-          :ok
-
-        %{acc: _, msg: error_message} ->
-          _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-          {:error, :database_error}
-
-        {:error, reason} ->
-          _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-          {:error, :database_error}
-      end
-    else
-      nil ->
-        {:error, :attribute_key_not_found}
-
-      %{acc: _, msg: error_message} ->
-        _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-        {:error, :database_error}
-
-      {:error, reason} ->
-        _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-        {:error, :database_error}
-    end
-  end
-
-  def insert_alias(client, device_id, alias_tag, alias_value) do
-    insert_alias_to_names_statement = """
-    INSERT INTO names
-    (object_name, object_type, object_uuid)
-    VALUES (:alias, 1, :device_id)
-    """
-
-    insert_alias_to_names_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(insert_alias_to_names_statement)
-      |> DatabaseQuery.put(:alias, alias_value)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:each_quorum)
-      |> DatabaseQuery.convert()
-
-    insert_alias_to_device_statement = """
-    UPDATE devices
-    SET aliases[:alias_tag] = :alias
-    WHERE device_id = :device_id
-    """
-
-    insert_alias_to_device_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(insert_alias_to_device_statement)
-      |> DatabaseQuery.put(:alias_tag, alias_tag)
-      |> DatabaseQuery.put(:alias, alias_value)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:each_quorum)
-      |> DatabaseQuery.convert()
-
-    insert_batch =
-      CQEx.cql_query_batch(
-        consistency: :each_quorum,
-        mode: :logged,
-        queries: [insert_alias_to_names_query, insert_alias_to_device_query]
-      )
-
-    with {:existing, {:error, :device_not_found}} <-
-           {:existing, device_alias_to_device_id(client, alias_value)},
-         :ok <- try_delete_alias(client, device_id, alias_tag),
-         {:ok, _result} <- DatabaseQuery.call(client, insert_batch) do
-      :ok
-    else
-      {:existing, {:ok, _device_uuid}} ->
-        {:error, :alias_already_in_use}
-
-      {:existing, {:error, reason}} ->
-        {:error, reason}
-
-      {:error, :device_not_found} ->
-        {:error, :device_not_found}
-
-      %{acc: _, msg: error_message} ->
-        _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-        {:error, :database_error}
-
-      {:error, reason} ->
-        _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-        {:error, :database_error}
-    end
-  end
-
-  def delete_alias(client, device_id, alias_tag) do
-    retrieve_aliases_statement = """
-    SELECT aliases
-    FROM devices
-    WHERE device_id = :device_id
-    """
-
-    retrieve_aliases_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(retrieve_aliases_statement)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:quorum)
-
-    with {:ok, result} <- DatabaseQuery.call(client, retrieve_aliases_query),
-         [aliases: aliases] <- DatabaseResult.head(result),
-         {^alias_tag, alias_value} <-
-           Enum.find(aliases || [], fn a -> match?({^alias_tag, _}, a) end),
-         {:check, {:ok, ^device_id}} <- {:check, device_alias_to_device_id(client, alias_value)} do
-      delete_alias_from_device_statement = """
-      DELETE aliases[:alias_tag]
-      FROM devices
-      WHERE device_id = :device_id
-      """
-
-      delete_alias_from_device_query =
-        DatabaseQuery.new()
-        |> DatabaseQuery.statement(delete_alias_from_device_statement)
-        |> DatabaseQuery.put(:alias_tag, alias_tag)
-        |> DatabaseQuery.put(:device_id, device_id)
-        |> DatabaseQuery.consistency(:each_quorum)
-        |> DatabaseQuery.convert()
-
-      delete_alias_from_names_statement = """
-      DELETE FROM names
-      WHERE object_name = :alias AND object_type = 1
-      """
-
-      delete_alias_from_names_query =
-        DatabaseQuery.new()
-        |> DatabaseQuery.statement(delete_alias_from_names_statement)
-        |> DatabaseQuery.put(:alias, alias_value)
-        |> DatabaseQuery.put(:device_id, device_id)
-        |> DatabaseQuery.consistency(:each_quorum)
-        |> DatabaseQuery.convert()
-
-      delete_batch =
-        CQEx.cql_query_batch(
-          consistency: :each_quorum,
-          mode: :logged,
-          queries: [delete_alias_from_device_query, delete_alias_from_names_query]
-        )
-
-      with {:ok, _result} <- DatabaseQuery.call(client, delete_batch) do
-        :ok
-      else
-        %{acc: _, msg: error_message} ->
-          _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-          {:error, :database_error}
-
-        {:error, reason} ->
-          _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-          {:error, :database_error}
-      end
-    else
-      {:check, _} ->
-        _ =
-          Logger.error("Inconsistent alias for #{alias_tag}.",
-            device_id: device_id,
-            tag: "inconsistent_alias"
-          )
-
-        {:error, :database_error}
-
-      :empty_dataset ->
-        {:error, :device_not_found}
-
-      nil ->
-        {:error, :alias_tag_not_found}
-
-      %{acc: _, msg: error_message} ->
-        _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-        {:error, :database_error}
-
-      {:error, reason} ->
-        _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-        {:error, :database_error}
-    end
-  end
-
-  defp try_delete_alias(client, device_id, alias_tag) do
-    case delete_alias(client, device_id, alias_tag) do
-      :ok ->
-        :ok
-
-      {:error, :alias_tag_not_found} ->
-        :ok
-
-      not_ok ->
-        not_ok
-    end
-  end
-
-  def set_inhibit_credentials_request(client, device_id, inhibit_credentials_request) do
-    statement = """
-    UPDATE devices
-    SET inhibit_credentials_request = :inhibit_credentials_request
-    WHERE device_id = :device_id
-    """
-
-    query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(statement)
-      |> DatabaseQuery.put(:inhibit_credentials_request, inhibit_credentials_request)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:each_quorum)
-
-    with {:ok, _result} <- DatabaseQuery.call(client, query) do
-      :ok
-    else
-      %{acc: _, msg: error_message} ->
-        _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-        {:error, :database_error}
-
-      {:error, reason} ->
-        _ = Logger.warning("Update failed, reason: #{inspect(reason)}.", tag: "db_error")
-        {:error, :database_error}
-    end
+    from DatabaseName,
+      prefix: ^keyspace,
+      select: [:object_uuid],
+      where: [object_type: 1, object_name: ^device_alias]
   end
 
   def retrieve_object_datastream_values(
@@ -475,28 +182,6 @@ defmodule Astarte.AppEngine.API.Device.Queries do
     |> filter_timestamp_range(timestamp_column, opts)
     |> order_by(^data_ordering)
     |> limit(^query_limit)
-  end
-
-  def get_results_count(_client, _count_query, %InterfaceValuesOptions{downsample_to: nil}) do
-    # Count will be ignored since theres no downsample_to
-    nil
-  end
-
-  def get_results_count(client, count_query, opts) do
-    with {:ok, result} <- DatabaseQuery.call(client, count_query),
-         [{_count_key, count}] <- DatabaseResult.head(result) do
-      limit = opts.limit || Config.max_results_limit!()
-
-      min(count, limit)
-    else
-      error ->
-        _ =
-          Logger.warning("Can't retrieve count for #{inspect(count_query)}: #{inspect(error)}.",
-            tag: "db_error"
-          )
-
-        nil
-    end
   end
 
   def all_properties_for_endpoint!(realm_name, device_id, interface_row, endpoint_id) do
@@ -715,19 +400,6 @@ defmodule Astarte.AppEngine.API.Device.Queries do
     base_attributes
     |> Map.merge(timestamp_attributes)
     |> Map.merge(value_attributes)
-  end
-
-  def to_db_friendly_type(array) when is_list(array) do
-    # If we have an array, we convert its elements to a db friendly type
-    Enum.map(array, &to_db_friendly_type/1)
-  end
-
-  def to_db_friendly_type(%DateTime{} = datetime) do
-    DateTime.to_unix(datetime, :millisecond)
-  end
-
-  def to_db_friendly_type(value) do
-    value
   end
 
   def timestamp_and_submillis(%DateTime{} = datetime) do

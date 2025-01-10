@@ -20,6 +20,8 @@ defmodule Astarte.AppEngine.API.Device do
   The Device context.
   """
   alias Astarte.AppEngine.API.DataTransmitter
+  alias Astarte.AppEngine.API.Device.Aliases
+  alias Astarte.AppEngine.API.Device.Attributes
   alias Astarte.AppEngine.API.Device.Data
   alias Astarte.AppEngine.API.Device.DevicesList
   alias Astarte.AppEngine.API.Device.DevicesListOptions
@@ -35,10 +37,11 @@ defmodule Astarte.AppEngine.API.Device do
   alias Astarte.Core.Mapping
   alias Astarte.Core.Mapping.EndpointsAutomaton
   alias Astarte.Core.Mapping.ValueType
-  alias Astarte.DataAccess.Database
+  alias Astarte.DataAccess.Astarte.Realm
   alias Astarte.DataAccess.Device, as: DeviceQueries
   alias Astarte.DataAccess.Interface, as: InterfaceQueries
   alias Astarte.DataAccess.Mappings
+  alias Astarte.DataAccess.Realms.Device, as: DatabaseDevice
   alias Astarte.DataAccess.Repo
   alias Ecto.Changeset
 
@@ -94,96 +97,83 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   def merge_device_status(realm_name, encoded_device_id, device_status_merge) do
-    with {:ok, client} <- Database.connect(realm: realm_name),
-         {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
-         {:ok, device_status} <- retrieve_device_status(realm_name, device_id),
-         changeset = DeviceStatus.changeset(device_status, device_status_merge),
-         {:ok, updated_device_status} <- Ecto.Changeset.apply_action(changeset, :update),
-         credentials_inhibited_change = Map.get(changeset.changes, :credentials_inhibited),
-         :ok <- change_credentials_inhibited(client, device_id, credentials_inhibited_change),
-         aliases_change = Map.get(changeset.changes, :aliases, %{}),
-         attributes_change = Map.get(changeset.changes, :attributes, %{}),
-         :ok <- update_aliases(client, device_id, aliases_change),
-         :ok <- update_attributes(client, device_id, attributes_change) do
-      # Manually merge aliases since changesets don't perform maps deep merge
-      merged_aliases = merge_data(device_status.aliases, updated_device_status.aliases)
-      merged_attributes = merge_data(device_status.attributes, updated_device_status.attributes)
+    keyspace = Realm.keyspace_name(realm_name)
+    aliases = device_status_merge["aliases"]
+    attributes = device_status_merge["attributes"]
 
-      updated_map =
-        updated_device_status
-        |> Map.put(:aliases, merged_aliases)
-        |> Map.put(:attributes, merged_attributes)
+    with {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
+         {:ok, device} <-
+           Repo.fetch(DatabaseDevice, device_id, prefix: keyspace, error: :device_not_found),
+         {:ok, aliases} <- Aliases.validate(aliases, realm_name, device),
+         {:ok, attributes} <- Attributes.validate(attributes) do
+      params =
+        case Map.fetch(device_status_merge, "credentials_inhibited") do
+          {:ok, credentials_inhibited} -> %{credentials_inhibited: credentials_inhibited}
+          :error -> %{}
+        end
 
-      {:ok, updated_map}
+      changeset =
+        DeviceStatus.from_device(device, realm_name)
+        |> Changeset.cast(params, [:credentials_inhibited])
+        |> Aliases.apply(aliases)
+        |> Attributes.apply(attributes)
+
+      case Changeset.apply_action(changeset, :update) do
+        {:ok, status} ->
+          execute_merge_queries(keyspace, device, changeset, aliases)
+          {:ok, status}
+
+        {:error, changeset} ->
+          {:error, sanitize_error(changeset)}
+      end
     end
   end
 
-  defp update_attributes(client, device_id, attributes) do
-    Enum.reduce_while(attributes, :ok, fn
-      {"", _attribute_value}, _acc ->
-        Logger.warning("Attribute key cannot be an empty string.",
-          tag: :invalid_attribute_empty_key
-        )
+  defp execute_merge_queries(_keyspace, _device, %Changeset{changes: changes}, _aliases)
+       when map_size(changes) == 0,
+       do: :ok
 
-        {:halt, {:error, :invalid_attributes}}
+  defp execute_merge_queries(keyspace, device, changeset, aliases) do
+    changes =
+      case Map.fetch(changeset.changes, :credentials_inhibited) do
+        {:ok, inhibit_credentials_request} ->
+          changeset.changes
+          |> Map.delete(:credentials_inhibited)
+          |> Map.put(:inhibit_credentials_request, inhibit_credentials_request)
 
-      {attribute_key, nil}, _acc ->
-        case Queries.delete_attribute(client, device_id, attribute_key) do
-          :ok ->
-            {:cont, :ok}
+        :error ->
+          changeset.changes
+      end
+      |> Keyword.new()
 
-          {:error, reason} ->
-            {:halt, {:error, reason}}
-        end
+    device_query =
+      from d in DatabaseDevice,
+        prefix: ^keyspace,
+        where: d.device_id == ^device.device_id,
+        update: [set: ^changes]
 
-      {attribute_key, attribute_value}, _acc ->
-        case Queries.insert_attribute(client, device_id, attribute_key, attribute_value) do
-          :ok ->
-            {:cont, :ok}
+    device_query = Repo.to_sql(:update_all, device_query)
+    aliases_queries = Aliases.generate_batch_queries(aliases, keyspace, device)
 
-          {:error, reason} ->
-            {:halt, {:error, reason}}
-        end
+    queries = [device_query | aliases_queries]
+
+    case Exandra.execute_batch(Repo, %Exandra.Batch{queries: queries}, consistency: :each_quorum) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Database error, reason: #{inspect(reason)}", tag: "db_error")
+        {:error, :database_error}
+    end
+  end
+
+  defp sanitize_error(changeset) do
+    # if there is a custom error, return it: it was created by Aliases.apply or Attributes.apply
+    Enum.find_value(changeset.errors, changeset, fn
+      {:aliases, {"", [reason: reason]}} -> reason
+      {:attributes, {"", [reason: reason]}} -> reason
+      _ -> false
     end)
-  end
-
-  defp update_aliases(client, device_id, aliases) do
-    Enum.reduce_while(aliases, :ok, fn
-      {_alias_key, ""}, _acc ->
-        Logger.warning("Alias value cannot be an empty string.", tag: :invalid_alias_empty_value)
-        {:halt, {:error, :invalid_alias}}
-
-      {"", _alias_value}, _acc ->
-        Logger.warning("Alias key cannot be an empty string.", tag: :invalid_alias_empty_key)
-        {:halt, {:error, :invalid_alias}}
-
-      {alias_key, nil}, _acc ->
-        case Queries.delete_alias(client, device_id, alias_key) do
-          :ok -> {:cont, :ok}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-
-      {alias_key, alias_value}, _acc ->
-        case Queries.insert_alias(client, device_id, alias_key, alias_value) do
-          :ok -> {:cont, :ok}
-          {:error, reason} -> {:halt, {:error, reason}}
-        end
-    end)
-  end
-
-  defp merge_data(old_data, new_data) when is_map(old_data) and is_map(new_data) do
-    Map.merge(old_data, new_data)
-    |> Enum.reject(fn {_, v} -> v == nil end)
-    |> Enum.into(%{})
-  end
-
-  defp change_credentials_inhibited(_client, _device_id, nil) do
-    :ok
-  end
-
-  defp change_credentials_inhibited(client, device_id, credentials_inhibited)
-       when is_boolean(credentials_inhibited) do
-    Queries.set_inhibit_credentials_request(client, device_id, credentials_inhibited)
   end
 
   @doc """
@@ -990,12 +980,12 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   def device_alias_to_device_id(realm_name, device_alias) do
-    with {:ok, client} <- Database.connect(realm: realm_name) do
-      Queries.device_alias_to_device_id(client, device_alias)
-    else
-      not_ok ->
-        _ = Logger.warning("Database error: #{inspect(not_ok)}.", tag: "db_error")
-        {:error, :database_error}
+    result =
+      Queries.device_alias_to_device_id(realm_name, device_alias)
+      |> Repo.fetch_one(consistency: :quorum, error: :device_not_found)
+
+    with {:ok, name} <- result do
+      {:ok, name.object_uuid}
     end
   end
 end
