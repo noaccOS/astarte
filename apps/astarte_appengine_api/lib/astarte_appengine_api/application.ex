@@ -27,6 +27,7 @@ defmodule Astarte.AppEngine.API.Application do
     alias Astarte.AppEngine.API.Config
     alias Astarte.DataAccess.Config, as: DataAccessConfig
     alias Astarte.RPC.Config, as: RPCConfig
+    
 
     # make amqp supervisors logs less verbose
     :logger.add_primary_filter(

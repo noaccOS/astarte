@@ -44,6 +44,7 @@ defmodule Astarte.AppEngine.API.Device do
   alias Astarte.DataAccess.Mappings
   alias Astarte.DataAccess.Realms.IndividualProperty, as: DatabaseIndividualProperty
   alias Astarte.DataAccess.Realms.Endpoint, as: DatabaseEndpoint
+  alias Astarte.DataAccess.Realms.Device, as: DatabaseDevice
   alias Astarte.DataAccess.Repo
   alias Ecto.Changeset
 
@@ -112,7 +113,7 @@ defmodule Astarte.AppEngine.API.Device do
          :ok <- change_credentials_inhibited(client, device_id, credentials_inhibited_change),
          aliases_change = Map.get(changeset.changes, :aliases, %{}),
          attributes_change = Map.get(changeset.changes, :attributes, %{}),
-         :ok <- update_aliases(client, device_id, aliases_change),
+         :ok <- update_aliases(realm_name, device_id, aliases_change),
          :ok <- update_attributes(client, device_id, attributes_change) do
       # Manually merge aliases since changesets don't perform maps deep merge
       merged_aliases = merge_data(device_status.aliases, updated_device_status.aliases)
@@ -156,7 +157,7 @@ defmodule Astarte.AppEngine.API.Device do
     end)
   end
 
-  defp update_aliases(client, device_id, aliases) do
+  defp update_aliases(realm_name, device_id, aliases) do
     Enum.reduce_while(aliases, :ok, fn
       {_alias_key, ""}, _acc ->
         Logger.warning("Alias value cannot be an empty string.", tag: :invalid_alias_empty_value)
@@ -167,17 +168,111 @@ defmodule Astarte.AppEngine.API.Device do
         {:halt, {:error, :invalid_alias}}
 
       {alias_key, nil}, _acc ->
-        case Queries.delete_alias(client, device_id, alias_key) do
+        case delete_alias(realm_name, device_id, alias_key) do
           :ok -> {:cont, :ok}
           {:error, reason} -> {:halt, {:error, reason}}
         end
 
       {alias_key, alias_value}, _acc ->
-        case Queries.insert_alias(client, device_id, alias_key, alias_value) do
-          :ok -> {:cont, :ok}
-          {:error, reason} -> {:halt, {:error, reason}}
+        case insert_alias(realm_name, device_id, alias_key, alias_value) do
+          :ok ->
+            {:cont, :ok}
+
+          {:error, reason} ->
+            {:halt, {:error, reason}}
         end
     end)
+  end
+
+  def insert_alias(realm_name, device_id, alias_tag, alias_value) do
+    keyspace = Realm.keyspace_name(realm_name)
+
+    insert_alias_to_names =
+      "INSERT INTO #{keyspace}.names (object_name, object_type, object_uuid) VALUES (?, 1, ?)"
+
+    insert_alias_to_names = {insert_alias_to_names, [alias_value, device_id]}
+
+    insert_alias_to_device = "UPDATE #{keyspace}.devices SET aliases[?] = ? WHERE device_id = ?"
+    insert_alias_to_device = {insert_alias_to_device, [alias_tag, alias_value, device_id]}
+
+    insert_batch =
+      %Exandra.Batch{queries: [insert_alias_to_device, insert_alias_to_names]}
+
+    with :ok <- alias_available?(realm_name, alias_value),
+         :ok <- delete_alias_if_exists(realm_name, device_id, alias_tag) do
+      Exandra.execute_batch(Repo, insert_batch, conosistency: :each_quorum)
+    end
+  end
+
+  defp alias_available?(realm_name, alias_value) do
+    case device_alias_to_device_id(realm_name, alias_value) do
+      {:error, :device_not_found} -> :ok
+      {:ok, _} -> {:error, :alias_already_in_use}
+    end
+  end
+
+  defp delete_alias_if_exists(realm_name, device_id, alias_tag) do
+    case delete_alias(realm_name, device_id, alias_tag) do
+      :ok ->
+        :ok
+
+      {:error, :alias_tag_not_found} ->
+        :ok
+
+      not_ok ->
+        not_ok
+    end
+  end
+
+  def delete_alias(realm_name, device_id, alias_tag) do
+    keyspace = Realm.keyspace_name(realm_name)
+
+    device_aliases =
+      from(DatabaseDevice, prefix: ^keyspace, select: [:aliases])
+      |> Repo.fetch(device_id, error: :device_not_found)
+
+    with {:ok, %DatabaseDevice{aliases: aliases}} <- device_aliases,
+         {:ok, alias_value} <- find_alias(aliases, alias_tag),
+         :ok <- check_alias_ownership(realm_name, device_id, alias_tag, alias_value) do
+      delete_alias_from_device = "DELETE aliases[?] FROM #{keyspace}.devices WHERE device_id = ?"
+      delete_alias_from_device = {delete_alias_from_device, [alias_tag, device_id]}
+
+      delete_alias_from_names =
+        "DELETE FROM #{keyspace}.names WHERE object_type = 1 and object_name = ?"
+
+      delete_alias_from_names = {delete_alias_from_names, [alias_value]}
+
+      # batches are second class citizens and require queries as strings
+      delete_batch = %Exandra.Batch{
+        queries: [
+          delete_alias_from_device,
+          delete_alias_from_names
+        ]
+      }
+
+      Exandra.execute_batch(Repo, delete_batch, consistency: :each_quorum)
+    end
+  end
+
+  defp check_alias_ownership(realm_name, device_id, alias_tag, alias_value) do
+    case device_alias_to_device_id(realm_name, alias_value) do
+      {:ok, ^device_id} ->
+        :ok
+
+      _ ->
+        Logger.error("Inconsistent alias for #{alias_tag}.",
+          device_id: device_id,
+          tag: "inconsistent_alias"
+        )
+
+        {:error, :database_error}
+    end
+  end
+
+  defp find_alias(device_aliases, alias) do
+    with :error <- Map.fetch(device_aliases, alias) do
+      {:error, :alias_tag_not_found}
+    end
   end
 
   defp merge_data(old_data, new_data) when is_map(old_data) and is_map(new_data) do
@@ -267,7 +362,6 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   defp update_individual_interface_values(
-         client,
          realm_name,
          device_id,
          interface_descriptor,
@@ -437,7 +531,6 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   defp update_object_interface_values(
-         client,
          realm_name,
          device_id,
          interface_descriptor,
@@ -546,8 +639,7 @@ defmodule Astarte.AppEngine.API.Device do
         raw_value,
         _params
       ) do
-    with {:ok, client} <- Database.connect(realm: realm_name),
-         {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
+    with {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
          {:ok, major_version} <-
            DeviceQueries.interface_version(realm_name, device_id, interface),
          {:ok, interface_row} <-
@@ -557,7 +649,6 @@ defmodule Astarte.AppEngine.API.Device do
          path <- "/" <> no_prefix_path do
       if interface_descriptor.aggregation == :individual do
         update_individual_interface_values(
-          client,
           realm_name,
           device_id,
           interface_descriptor,
@@ -566,7 +657,6 @@ defmodule Astarte.AppEngine.API.Device do
         )
       else
         update_object_interface_values(
-          client,
           realm_name,
           device_id,
           interface_descriptor,
@@ -1630,12 +1720,12 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   def device_alias_to_device_id(realm_name, device_alias) do
-    with {:ok, client} <- Database.connect(realm: realm_name) do
-      Queries.device_alias_to_device_id(client, device_alias)
-    else
-      not_ok ->
-        _ = Logger.warning("Database error: #{inspect(not_ok)}.", tag: "db_error")
-        {:error, :database_error}
+    result =
+      Queries.device_alias_to_device_id(realm_name, device_alias)
+      |> Repo.fetch_one(consistency: :quorum, error: :device_not_found)
+
+    with {:ok, name} <- result do
+      {:ok, name.object_uuid}
     end
   end
 
