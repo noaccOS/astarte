@@ -167,87 +167,9 @@ defmodule Astarte.AppEngine.API.Device.Queries do
       where: [object_type: 1, object_name: ^device_alias]
   end
 
-  def insert_attribute(client, device_id, attribute_key, attribute_value) do
-    insert_attribute_statement = """
-    UPDATE devices
-    SET attributes[:attribute_key] = :attribute_value
-    WHERE device_id = :device_id
-    """
+  
 
-    query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(insert_attribute_statement)
-      |> DatabaseQuery.put(:attribute_key, attribute_key)
-      |> DatabaseQuery.put(:attribute_value, attribute_value)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:each_quorum)
-
-    with {:ok, _result} <- DatabaseQuery.call(client, query) do
-      :ok
-    else
-      %{acc: _, msg: error_message} ->
-        _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-        {:error, :database_error}
-
-      {:error, reason} ->
-        _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-        {:error, :database_error}
-    end
-  end
-
-  def delete_attribute(client, device_id, attribute_key) do
-    retrieve_attribute_statement = """
-    SELECT attributes FROM devices WHERE device_id = :device_id
-    """
-
-    retrieve_attribute_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(retrieve_attribute_statement)
-      |> DatabaseQuery.put(:device_id, device_id)
-      |> DatabaseQuery.consistency(:quorum)
-
-    with {:ok, result} <- DatabaseQuery.call(client, retrieve_attribute_query),
-         [attributes: attributes] <- DatabaseResult.head(result),
-         {^attribute_key, _attribute_value} <-
-           Enum.find(attributes || [], fn m -> match?({^attribute_key, _}, m) end) do
-      delete_attribute_statement = """
-        DELETE attributes[:attribute_key]
-        FROM devices
-        WHERE device_id = :device_id
-      """
-
-      delete_attribute_query =
-        DatabaseQuery.new()
-        |> DatabaseQuery.statement(delete_attribute_statement)
-        |> DatabaseQuery.put(:attribute_key, attribute_key)
-        |> DatabaseQuery.put(:device_id, device_id)
-        |> DatabaseQuery.consistency(:each_quorum)
-
-      case DatabaseQuery.call(client, delete_attribute_query) do
-        {:ok, _result} ->
-          :ok
-
-        %{acc: _, msg: error_message} ->
-          _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-          {:error, :database_error}
-
-        {:error, reason} ->
-          _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-          {:error, :database_error}
-      end
-    else
-      nil ->
-        {:error, :attribute_key_not_found}
-
-      %{acc: _, msg: error_message} ->
-        _ = Logger.warning("Database error: #{error_message}.", tag: "db_error")
-        {:error, :database_error}
-
-      {:error, reason} ->
-        _ = Logger.warning("Database error, reason: #{inspect(reason)}.", tag: "db_error")
-        {:error, :database_error}
-    end
-  end
+  
 
   def set_inhibit_credentials_request(client, device_id, inhibit_credentials_request) do
     statement = """

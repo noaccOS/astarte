@@ -156,6 +156,9 @@ defmodule Astarte.AppEngine.API.DeviceTest do
 
   setup_all do
     {:ok, _client} = DatabaseTestHelper.create_test_keyspace()
+    # DatabaseTestHelper.seed_data()
+
+    # raise "tua mamma puzza"
 
     on_exit(fn ->
       DatabaseTestHelper.destroy_local_test_keyspace()
