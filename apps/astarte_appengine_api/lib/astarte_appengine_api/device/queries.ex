@@ -30,6 +30,7 @@ defmodule Astarte.AppEngine.API.Device.Queries do
   alias Astarte.DataAccess.Realms.DeletionInProgress, as: DatabaseDeletionInProgress
   alias Astarte.DataAccess.Realms.IndividualDatastream, as: DatabaseIndividualDatastream
   alias Astarte.DataAccess.Realms.IndividualProperty, as: DatabaseIndividualProperty
+  alias Astarte.DataAccess.Realms.Name, as: DatabaseName
   alias Astarte.DataAccess.Astarte.KvStore
   alias Astarte.DataAccess.Astarte.Realm
 
@@ -155,32 +156,6 @@ defmodule Astarte.AppEngine.API.Device.Queries do
       select: merge(map(d, ^field_selection), %{"token" => fragment("TOKEN(?)", d.device_id)}),
       where: ^token_filter,
       limit: ^limit
-  end
-
-  def device_alias_to_device_id(client, device_alias) do
-    device_id_statement = """
-    SELECT object_uuid
-    FROM names
-    WHERE object_name = :device_alias AND object_type = 1
-    """
-
-    device_id_query =
-      DatabaseQuery.new()
-      |> DatabaseQuery.statement(device_id_statement)
-      |> DatabaseQuery.put(:device_alias, device_alias)
-      |> DatabaseQuery.consistency(:quorum)
-
-    with {:ok, result} <- DatabaseQuery.call(client, device_id_query),
-         [object_uuid: device_id] <- DatabaseResult.head(result) do
-      {:ok, device_id}
-    else
-      :empty_dataset ->
-        {:error, :device_not_found}
-
-      not_ok ->
-        _ = Logger.warning("Database error: #{inspect(not_ok)}.", tag: "db_error")
-        {:error, :database_error}
-    end
   end
 
   def insert_attribute(client, device_id, attribute_key, attribute_value) do
@@ -427,6 +402,15 @@ defmodule Astarte.AppEngine.API.Device.Queries do
       not_ok ->
         not_ok
     end
+  end
+
+  def device_alias_to_device_id(realm_name, device_alias) do
+    keyspace = Realm.keyspace_name(realm_name)
+
+    from DatabaseName,
+      prefix: ^keyspace,
+      select: [:object_uuid],
+      where: [object_type: 1, object_name: ^device_alias]
   end
 
   def set_inhibit_credentials_request(client, device_id, inhibit_credentials_request) do

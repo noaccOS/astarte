@@ -990,12 +990,12 @@ defmodule Astarte.AppEngine.API.Device do
   end
 
   def device_alias_to_device_id(realm_name, device_alias) do
-    with {:ok, client} <- Database.connect(realm: realm_name) do
-      Queries.device_alias_to_device_id(client, device_alias)
-    else
-      not_ok ->
-        _ = Logger.warning("Database error: #{inspect(not_ok)}.", tag: "db_error")
-        {:error, :database_error}
+    result =
+      Queries.device_alias_to_device_id(realm_name, device_alias)
+      |> Repo.fetch_one(consistency: :quorum, error: :device_not_found)
+
+    with {:ok, name} <- result do
+      {:ok, name.object_uuid}
     end
   end
 end
