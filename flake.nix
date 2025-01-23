@@ -34,7 +34,12 @@
             overlays = [ self.overlays.default ];
           };
 
-          devShells.default = pkgs.callPackage elixir-utils.lib.devShell { };
+          devShells.default = pkgs.callPackage elixir-utils.lib.devShell {
+            packages = [ pkgs.gleam ];
+            shellHook = ''
+              mix archive.install hex mix_gleam --force
+            '';
+          };
           formatter = pkgs.nixfmt-rfc-style;
         };
     };
