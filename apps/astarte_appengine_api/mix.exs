@@ -126,8 +126,9 @@ defmodule Astarte.AppEngine.API.Mixfile do
       {:mox, "~> 0.5", only: :test},
       {:stream_data, "~> 1.0", only: [:dev, :test]},
       # gleam
-      {:gleam_stdlib, "~> 0.52"},
-      {:gleeunit, "~> 1.2", only: [:dev, :test], runtime: false}
+      {:gleam_stdlib, "~> 0.53"},
+      {:gleeunit, "~> 1.2", only: [:dev, :test], runtime: false},
+      {:appendex, path: "/home/francesco/src/appendex"}
     ]
   end
 end
