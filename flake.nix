@@ -29,6 +29,10 @@
           devShells.default = pkgs.callPackage elixir-utils.lib.asdfDevShell {
             toolVersions = ./.tool-versions;
             wxSupport = false;
+            packages = [ pkgs.gleam ];
+            shellHook = ''
+              mix archive.install hex mix_gleam --force
+            '';
           };
           formatter = pkgs.nixfmt-rfc-style;
         };

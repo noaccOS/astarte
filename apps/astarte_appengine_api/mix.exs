@@ -18,9 +18,11 @@
 defmodule Astarte.AppEngine.API.Mixfile do
   use Mix.Project
 
+  @app :astarte_appengine_api
+
   def project do
     [
-      app: :astarte_appengine_api,
+      app: @app,
       elixir: "~> 1.15",
       version: "1.3.0-dev",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -33,7 +35,17 @@ defmodule Astarte.AppEngine.API.Mixfile do
         "coveralls.html": :test
       ],
       dialyzer: [plt_core_path: dialyzer_cache_directory(Mix.env())],
-      deps: deps() ++ astarte_required_modules(System.get_env("ASTARTE_IN_UMBRELLA"))
+      deps: deps() ++ astarte_required_modules(System.get_env("ASTARTE_IN_UMBRELLA")),
+
+      # gleam
+      archives: [mix_gleam: "~> 0.6"],
+      aliases: ["deps.get": ["deps.get", "gleam.deps.get"]],
+      compilers: [:gleam | Mix.compilers()],
+      erlc_paths: [
+        "build/dev/erlang/#{@app}/_gleam_artefacts"
+      ],
+      erlc_include_path: "build/dev/erlang/#{@app}/include",
+      prune_code_paths: false
     ]
   end
 
@@ -112,7 +124,10 @@ defmodule Astarte.AppEngine.API.Mixfile do
       # Test section
       {:excoveralls, "~> 0.15", only: :test},
       {:mox, "~> 0.5", only: :test},
-      {:stream_data, "~> 1.0", only: [:dev, :test]}
+      {:stream_data, "~> 1.0", only: [:dev, :test]},
+      # gleam
+      {:gleam_stdlib, "~> 0.52"},
+      {:gleeunit, "~> 1.2", only: [:dev, :test], runtime: false}
     ]
   end
 end
