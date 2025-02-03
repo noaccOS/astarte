@@ -27,32 +27,6 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
 
   require Logger
 
-  def create_group(realm_name, group_changeset) do
-    Xandra.Cluster.run(:xandra, fn conn ->
-      with {:ok, %Group{devices: devices, group_name: group_name} = group} <-
-             Ecto.Changeset.apply_action(group_changeset, :insert),
-           :ok <- check_all_devices_exist(conn, realm_name, devices),
-           {:group_exists?, false} <-
-             {:group_exists?, group_exists?(conn, realm_name, group_name)},
-           :ok <- add_to_group(conn, realm_name, group_name, devices) do
-        {:ok, group}
-      else
-        {:group_exists?, true} ->
-          {:error, :group_already_exists}
-
-        {:error, {:device_not_found, device_id}} ->
-          error_changeset =
-            group_changeset
-            |> Ecto.Changeset.add_error(:devices, "must exist (#{device_id} not found)")
-
-          {:error, error_changeset}
-
-        {:error, %Ecto.Changeset{} = error_changeset} ->
-          {:error, error_changeset}
-      end
-    end)
-  end
-
   def list_groups(realm_name) do
     Xandra.Cluster.run(:xandra, fn conn ->
       query = "SELECT DISTINCT group_name FROM :keyspace.grouped_devices"
@@ -312,18 +286,6 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
 
       {:in_group?, {:error, reason}} ->
         {:error, reason}
-    end
-  end
-
-  defp check_all_devices_exist(_conn, _realm_name, []) do
-    :ok
-  end
-
-  defp check_all_devices_exist(conn, realm_name, [device_id | tail]) do
-    if device_exists?(conn, realm_name, device_id) do
-      check_all_devices_exist(conn, realm_name, tail)
-    else
-      {:error, {:device_not_found, device_id}}
     end
   end
 
