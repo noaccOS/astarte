@@ -132,9 +132,13 @@ defmodule Astarte.AppEngine.API.Groups do
     Queries.check_device_in_group(realm_name, group_name, device_id)
   end
 
-  defp check_group_does_not_exist(keyspace, group_name) do
+  defp check_group_exists(keyspace, group_name) do
     from(GroupedDevice, select: [:group_name], limit: 1)
     |> Repo.fetch_by([group_name: group_name], prefix: keyspace)
+  end
+
+  defp check_group_does_not_exist(keyspace, group_name) do
+    check_group_exists(keyspace, group_name)
     |> case do
       {:error, _} ->
         :ok
