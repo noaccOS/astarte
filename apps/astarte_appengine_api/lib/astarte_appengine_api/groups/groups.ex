@@ -52,7 +52,10 @@ defmodule Astarte.AppEngine.API.Groups do
   end
 
   def list_groups(realm_name) do
-    Queries.list_groups(realm_name)
+    keyspace = Realm.keyspace_name(realm_name)
+
+    from(g in GroupedDevice, prefix: ^keyspace, select: g.group_name, distinct: true)
+    |> Repo.all()
   end
 
   def get_group(realm_name, group_name) do

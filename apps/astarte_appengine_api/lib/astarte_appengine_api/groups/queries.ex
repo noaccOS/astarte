@@ -27,21 +27,6 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
 
   require Logger
 
-  def list_groups(realm_name) do
-    Xandra.Cluster.run(:xandra, fn conn ->
-      query = "SELECT DISTINCT group_name FROM :keyspace.grouped_devices"
-
-      with {:ok, prepared} <- prepare_with_realm(conn, realm_name, query),
-           {:ok, %Xandra.Page{} = page} <- Xandra.execute(conn, prepared) do
-        {:ok, Enum.map(page, fn %{"group_name" => group_name} -> group_name end)}
-      else
-        {:error, reason} ->
-          _ = Logger.error("Database error: #{inspect(reason)}.", tag: "db_error")
-          {:error, :database_error}
-      end
-    end)
-  end
-
   def get_group(realm_name, group_name) do
     Xandra.Cluster.run(:xandra, fn conn ->
       query = """
