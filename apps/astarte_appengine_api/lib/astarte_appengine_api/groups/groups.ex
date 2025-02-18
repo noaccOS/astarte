@@ -59,7 +59,15 @@ defmodule Astarte.AppEngine.API.Groups do
   end
 
   def get_group(realm_name, group_name) do
-    Queries.get_group(realm_name, group_name)
+    keyspace = Realm.keyspace_name(realm_name)
+
+    group_query = from g in GroupedDevice, select: g.group_name, limit: 1
+    fetch_clause = [group_name: group_name]
+    opts = [prefix: keyspace, error: :group_not_found]
+
+    with {:ok, group_name} <- Repo.fetch_by(group_query, fetch_clause, opts) do
+      {:ok, %Group{group_name: group_name}}
+    end
   end
 
   def list_detailed_devices(realm_name, group_name, params \\ %{}) do
