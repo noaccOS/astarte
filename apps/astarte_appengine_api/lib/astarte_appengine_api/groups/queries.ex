@@ -20,6 +20,7 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
   alias Astarte.AppEngine.API.Groups.Group
   alias Astarte.AppEngine.API.Device.DeviceStatus
   alias Astarte.AppEngine.API.Device.DevicesList
+  alias Astarte.DataAccess.Realms.GroupedDevice
   alias Astarte.Core.CQLUtils
   alias Astarte.AppEngine.API.Config
   alias Astarte.Core.Device
@@ -28,6 +29,18 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
   require Logger
 
   def list_devices(realm_name, group_name, opts \\ []) do
+    keyspace = Realm.keyspace_name(realm_name)
+
+    query =
+      if opts[:details],
+        do: list_device_with_details(keyspace, group_name, opts),
+        else: list_grouped_devices(keyspace, group_name, opts)
+
+    query = query |> limit(opts[:limit])
+
+    case Repo.all(query) do
+    end
+
     Xandra.Cluster.run(:xandra, fn conn ->
       query = build_list_devices_statement(opts)
 
@@ -52,6 +65,24 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
           {:error, :database_error}
       end
     end)
+  end
+
+  defp list_devices_with_details(keyspace, group_name, opts) do
+    query = list_devices_with_details_query(keyspace, group_name, opts) |> limit(opts[:limit])
+
+    case Repo.all(query) do
+      [] -> {:error, :group_not_found}
+      devices -> {:ok, build_device_list(keyspace, devices, opts)}
+    end
+  end
+
+  defp list_grouped_devices(keyspace, group_name, opts) do
+    query = list_grouped_devices_query(keyspace, group_name, opts)
+
+    case Repo.all(query) do
+      [] -> {:error, :group_not_found}
+      devices -> {:ok, build_device_list(keyspace, devices, opts)}
+    end
   end
 
   def add_device(realm_name, group_name, device_changeset) do
@@ -105,70 +136,57 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
     end)
   end
 
-  defp build_list_devices_statement(opts) do
-    {select, from, where, suffix} =
-      if opts[:details] do
-        select = """
-        SELECT TOKEN(device_id), device_id, aliases, introspection, inhibit_credentials_request,
-        introspection_minor, connected, last_connection, last_disconnection,
-        first_registration, first_credentials_request, last_credentials_request_ip,
-        last_seen_ip, total_received_msgs, total_received_bytes, groups,
-        exchanged_msgs_by_interface, exchanged_bytes_by_interface, old_introspection,
-        attributes
-        """
+  defp list_devices_with_details_query(keyspace, group_name, opts) do
+    previous_token = opts[:from_token]
 
-        from = """
-        FROM :keyspace.devices
-        """
+    from_previous_token =
+      if previous_token,
+        do: dynamic([d], fragment("TOKEN(?)", d.device_id) > previous_token),
+        else: true
 
-        where =
-          if opts[:from_token] do
-            """
-            WHERE TOKEN(device_id) > :previous_token
-            AND groups CONTAINS KEY :group_name
-            """
-          else
-            """
-            WHERE groups CONTAINS KEY :group_name
-            """
-          end
+    # TODO: this needs to be done with ALLOW FILTERING, so it's not particularly efficient
+    from d in Device,
+      prefix: ^keyspace,
+      hints: ["ALLOW FILTERING"],
+      select: %{
+        token: fragment("TOKEN(?)", d.device_id),
+        device_id: d.device_id,
+        aliases: d.aliases,
+        introspection: d.introspection,
+        inhibit_credentials_request: d.inhibit_credentials_request,
+        introspection_minor: d.introspection_minor,
+        connected: d.connected,
+        last_connection: d.last_connection,
+        last_disconnection: d.last_disconnection,
+        first_registration: d.first_registration,
+        first_credentials_request: d.first_credentials_request,
+        last_credentials_request_ip: d.last_credentials_request_ip,
+        last_seen_ip: d.last_seen_ip,
+        total_received_msgs: d.total_received_msgs,
+        total_received_bytes: d.total_received_bytes,
+        groups: d.groups,
+        exchanged_msgs_by_interface: d.exchanged_msgs_by_interface,
+        exchanged_bytes_by_interface: d.exchanged_bytes_by_interface,
+        old_introspection: d.old_introspection,
+        attributes: d.attributes
+      },
+      where: ^from_previous_token,
+      where: fragment("? CONTAINS KEY ?", d.groups, ^group_name)
+  end
 
-        # TODO: this needs to be done with ALLOW FILTERING, so it's not particularly efficient
-        suffix = """
-        LIMIT :page_size
-        ALLOW FILTERING
-        """
+  defp list_grouped_devices_query(keyspace, group_name, opts) do
+    previous_token = opts[:from_token]
 
-        {select, from, where, suffix}
-      else
-        select = """
-        SELECT insertion_uuid, device_id
-        """
+    from_previous_token =
+      if previous_token,
+        do: dynamic([d], d.insertion_uuid > previous_token),
+        else: true
 
-        from = """
-        FROM :keyspace.grouped_devices
-        """
-
-        where =
-          if opts[:from_token] do
-            """
-            WHERE group_name = :group_name
-            AND insertion_uuid > :previous_token
-            """
-          else
-            """
-            WHERE group_name = :group_name
-            """
-          end
-
-        suffix = """
-        LIMIT :page_size
-        """
-
-        {select, from, where, suffix}
-      end
-
-    select <> from <> where <> suffix
+    from GroupedDevice,
+      prefix: ^keyspace,
+      select: [:insertion_uuid, :device_id],
+      where: [group_name: ^group_name],
+      where: ^from_previous_token
   end
 
   defp build_device_list(realm_name, result, opts) do
@@ -198,6 +216,7 @@ defmodule Astarte.AppEngine.API.Groups.Queries do
   defp compute_device_status(realm_name, device_row) do
     %{"device_id" => device_id} = device_row
     device_status = DeviceStatus.from_db_row(device_row)
+    # TODO: rebase on newer devicestatus
     deletion_in_progress? = deletion_in_progress?(realm_name, device_id)
     %{device_status | deletion_in_progress: deletion_in_progress?}
   end
