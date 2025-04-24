@@ -61,6 +61,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
 
   defp astarte_required_modules("true") do
     [
+      {:astarte_generators, in_umbrella: true},
       {:astarte_core, in_umbrella: true},
       {:astarte_data_access, in_umbrella: true},
       {:astarte_rpc, in_umbrella: true}
@@ -69,6 +70,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
 
   defp astarte_required_modules(_) do
     [
+      {:astarte_generators, github: "astarte-platform/astarte_generators", only: [:dev, :test]},
       {:astarte_core, github: "astarte-platform/astarte_core", branch: "release-1.2"},
       {:astarte_data_access,
        github: "astarte-platform/astarte_data_access", branch: "release-1.2"},
@@ -115,8 +117,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
       {:ssl_verify_fun, "~> 1.1.0", manager: :rebar3, override: true},
       # Test section
       {:excoveralls, "~> 0.15", only: :test},
-      {:mox, "~> 0.5", only: :test},
-      {:stream_data, "~> 0.5", only: [:test, :dev]}
+      {:mox, "~> 0.5", only: :test}
     ]
   end
 end
