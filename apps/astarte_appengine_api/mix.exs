@@ -98,7 +98,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
       # Required by :phoenix_swagger, otherwise it fails finding ex_json_schema.app
       {:ex_json_schema, "~> 0.7"},
       {:phoenix_swagger, "~> 0.8"},
-      {:xandra, "~> 0.13"},
+      {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
       {:exandra, "~> 0.13"},
       {:typed_ecto_schema, "~> 0.4"},
       {:pretty_log, "~> 0.1"},

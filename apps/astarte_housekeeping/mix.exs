@@ -82,7 +82,6 @@ defmodule Astarte.Housekeeping.Mixfile do
 
   defp deps do
     [
-      {:xandra, "~> 0.13"},
       {:excoveralls, "~> 0.15", only: :test},
       {:dialyxir, "~> 1.0", only: [:dev, :ci], runtime: false},
       {:plug_cowboy, "~> 2.1"},
@@ -93,6 +92,7 @@ defmodule Astarte.Housekeeping.Mixfile do
       {:telemetry_poller, "~> 0.4"},
       {:observer_cli, "~> 1.5"},
       {:exandra, "~> 0.13.0"},
+      {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
       {:mox, "~> 0.5", only: :test},
       {:mimic, "~> 1.7.4", only: :test},
       # Workaround for Elixir 1.15 / ssl_verify_fun issue

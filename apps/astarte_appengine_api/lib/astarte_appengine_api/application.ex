@@ -62,6 +62,9 @@ defmodule Astarte.AppEngine.API.Application do
       {Astarte.AppEngine.API.Repo, xandra_options}
     ]
 
+    Xandra.Telemetry.attach_default_handler()
+    Xandra.Telemetry.attach_debug_handler()
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Astarte.AppEngine.API.Supervisor]

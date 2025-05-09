@@ -42,6 +42,9 @@ defmodule Astarte.Housekeeping.BackendSupervisor do
       {Astarte.DataAccess, data_access_opts}
     ]
 
+    Xandra.Telemetry.attach_default_handler()
+    Xandra.Telemetry.attach_debug_handler()
+
     opts = [strategy: :rest_for_one, name: __MODULE__]
     Supervisor.init(children, opts)
   end

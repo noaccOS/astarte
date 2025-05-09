@@ -59,6 +59,9 @@ defmodule Astarte.Pairing do
       {Astarte.Pairing.Repo, repo_opts}
     ]
 
+    Xandra.Telemetry.attach_default_handler()
+    Xandra.Telemetry.attach_debug_handler()
+
     Supervisor.start_link(children, strategy: :one_for_one)
   end
 end

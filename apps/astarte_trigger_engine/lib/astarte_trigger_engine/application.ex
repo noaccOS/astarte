@@ -51,6 +51,9 @@ defmodule Astarte.TriggerEngine.Application do
       DeliverySupervisor
     ]
 
+    Xandra.Telemetry.attach_default_handler()
+    Xandra.Telemetry.attach_debug_handler()
+
     opts = [strategy: :one_for_one, name: Astarte.TriggerEngine.Supervisor]
     Supervisor.start_link(children, opts)
   end
