@@ -102,10 +102,14 @@ defmodule Astarte.Cases.Device do
       end
 
     registered_paths = Map.new(interface_data, fn {key, data} -> {key, data.paths} end)
+    registered_paths_with_expiry = Map.new(interface_data, fn {key, data} -> {key, data.paths_with_expiry} end)
+    registered_paths_without_expiry = Map.new(interface_data, fn {key, data} -> {key, data.paths_without_expiry} end)
     registered_timings = Map.new(interface_data, fn {key, data} -> {key, data.timings} end)
 
     %{
       registered_paths: registered_paths,
+      registered_paths_with_expiry: registered_paths_with_expiry,
+      registered_paths_without_expiry: registered_paths_without_expiry,
       registered_timings: registered_timings,
       interfaces_with_data: interfaces_with_data,
       individual_datastream_device_interface: individual_datastream_device,
@@ -113,13 +117,12 @@ defmodule Astarte.Cases.Device do
       object_datastream_device_interface: object_datastream_device,
       object_datastream_server_interface: object_datastream_server,
       individual_properties_device_interface: individual_properties_device,
-      individual_properties_server_interface: individual_properties_server
+      individual_properties_server_interface: individual_properties_server,
     }
   end
 
-  defp populate(realm_name, device, interface) do
+  defp populate(realm_name, device, interface) when interface.type == :properties do
     mapping_update = valid_mapping_update_for(interface)
-
     values =
       list_of(mapping_update, length: 100..10_000)
       |> Enum.at(0)
@@ -127,7 +130,42 @@ defmodule Astarte.Cases.Device do
     timings = insert_values(realm_name, device, interface, values)
     paths = MapSet.new(values, & &1.path)
 
-    %{paths: paths, timings: timings}
+    %{
+      paths: paths,
+      timings: timings,
+      paths_without_expiry: paths,
+      paths_with_expiry: MapSet.new()
+    }
+  end
+
+  defp populate(realm_name, device, interface) when interface.type == :datastream do
+    mapping_update = valid_mapping_update_for(interface)
+
+    values =
+      list_of(mapping_update, length: 100..10_000)
+      |> Enum.at(0)
+
+    half = length(values) |> div(2)
+
+    {values_with_path_expiry, values_without_path_expiry} = values |> Enum.split(half)
+
+    timings_with_path_expiry =
+      insert_values(realm_name, device, interface, values_with_path_expiry, ttl: 1000)
+
+    timings_without_path_expiry =
+      insert_values(realm_name, device, interface, values_without_path_expiry)
+
+    timings = Enum.concat(timings_with_path_expiry, timings_without_path_expiry) |> Enum.sort()
+    paths = MapSet.new(values, & &1.path)
+    paths_with_expiry = MapSet.new(values_with_path_expiry, & &1.path)
+    paths_without_expiry = MapSet.new(values_without_path_expiry, & &1.path)
+
+    %{
+      paths: paths,
+      timings: timings,
+      paths_with_expiry: paths_with_expiry,
+      paths_without_expiry: paths_without_expiry
+    }
   end
 
   defp update_interfaces_id(realm_name, interfaces) do

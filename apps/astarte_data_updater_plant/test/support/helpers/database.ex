@@ -502,7 +502,7 @@ defmodule Astarte.Helpers.Database do
     |> Mimic.stub(:astarte_instance_id!, fn -> astarte_instance_id end)
   end
 
-  def insert_values(realm_name, device, interface, mapping_updates) do
+  def insert_values(realm_name, device, interface, mapping_updates, path_opts \\ []) do
     mappings_map = interface.mappings |> Map.new(&{&1.endpoint_id, &1})
 
     {:ok, interface_descriptor} =
@@ -527,6 +527,19 @@ defmodule Astarte.Helpers.Database do
           timestamp,
           []
         )
+
+      if interface.type == :datastream do
+        Queries.insert_path_into_db(
+          realm_name,
+          device.device_id,
+          interface_descriptor,
+          mapping,
+          mapping_update.path,
+          timestamp,
+          timestamp,
+          path_opts
+        )
+      end
 
       timestamp
     end)

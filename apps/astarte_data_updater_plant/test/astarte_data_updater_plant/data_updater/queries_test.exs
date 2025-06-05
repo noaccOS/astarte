@@ -29,10 +29,12 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.QueriesTest do
   alias Astarte.Core.InterfaceDescriptor
   alias Astarte.DataAccess.Device.DeletionInProgress
   alias Astarte.DataAccess.Devices.Device, as: DatabaseDevice
+  alias Astarte.DataAccess.Interface, as: InterfaceQueries
   alias Astarte.DataAccess.KvStore
   alias Astarte.DataAccess.Realms.Interface, as: DatabaseInterface
   alias Astarte.DataAccess.Realms.Realm
   alias Astarte.DataAccess.Repo
+  alias Astarte.DataUpdaterPlant.DataUpdater.Core
   alias Astarte.DataUpdaterPlant.DataUpdater.Queries
 
   import ExUnit.CaptureLog
@@ -285,6 +287,87 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.QueriesTest do
     test "returns the list of realms", %{realm_names: expected_realms} do
       realms = Queries.retrieve_realms!() |> Enum.map(& &1["realm_name"]) |> Enum.sort()
       assert realms == expected_realms
+    end
+  end
+
+  describe "fetch_path_expiry/4" do
+    test "returns an error if it can't find the path", context do
+      %{interfaces: [interface | _], device: device, realm_name: realm_name} = context
+      interface_descriptor = %InterfaceDescriptor{interface_id: interface.interface_id}
+      [mapping | _] = interface.mappings
+      invalid_path = "not_a_valid_path"
+
+      assert Queries.fetch_path_expiry(
+               realm_name,
+               device.device_id,
+               interface_descriptor,
+               mapping,
+               invalid_path
+             ) == {:error, :property_not_set}
+    end
+
+    test "returns :no_expiry if the path does not have an expiry", context do
+      %{
+        interfaces_with_data: interfaces,
+        registered_paths_without_expiry: paths,
+        device: device,
+        realm_name: realm_name
+      } = context
+      interface = interfaces |> Enum.filter(& &1.type == :datastream) |> Enum.random()
+
+      {:ok, interface_descriptor} =
+        InterfaceQueries.fetch_interface_descriptor(
+          realm_name,
+          interface.name,
+          interface.major_version
+        )
+
+      path = Map.fetch!(paths, {interface.name, interface.major_version}) |> Enum.random()
+      mappings = Map.new(interface.mappings, &{&1.endpoint_id, &1})
+      {:ok, mapping} = Core.Interface.resolve_path(path, interface_descriptor, mappings)
+
+      assert Queries.fetch_path_expiry(
+               realm_name,
+               device.device_id,
+               interface_descriptor,
+               mapping,
+               path
+             ) == {:ok, :no_expiry}
+    end
+
+    # TODO: this no work
+    test "returns the expiry for paths with an expiry", context do
+      %{
+        interfaces_with_data: interfaces,
+        registered_paths_with_expiry: paths,
+        device: device,
+        realm_name: realm_name
+      } = context
+
+      interface = interfaces |> Enum.filter(& &1.type == :datastream) |> Enum.random()
+
+      {:ok, interface_descriptor} =
+        InterfaceQueries.fetch_interface_descriptor(
+          realm_name,
+          interface.name,
+          interface.major_version
+        )
+
+      now = DateTime.utc_now()
+      path = Map.fetch!(paths, {interface.name, interface.major_version}) |> Enum.random()
+      mappings = Map.new(interface.mappings, &{&1.endpoint_id, &1})
+      {:ok, mapping} = Core.Interface.resolve_path(path, interface_descriptor, mappings)
+
+      assert {:ok, expiry} =
+               Queries.fetch_path_expiry(
+                 realm_name,
+                 device.device_id,
+                 interface_descriptor,
+                 mapping,
+                 path
+               )
+
+      assert DateTime.after?(expiry, now)
     end
   end
 

@@ -70,4 +70,11 @@ defmodule Astarte.Helpers.Device do
   def fallible_value_types do
     @fallible_value_type
   end
+
+  def expirable?(interface) do
+    [mapping | _] = interface.mappings
+    mapping.expiry == 0
+  end
+
+  def not_expirable?(interface), do: not expirable?(interface)
 end
