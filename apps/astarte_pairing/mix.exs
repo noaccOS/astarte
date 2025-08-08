@@ -84,7 +84,7 @@ defmodule Astarte.Pairing.Mixfile do
       {:telemetry_metrics_prometheus_core, "~> 0.4"},
       {:telemetry_metrics, "~> 0.4"},
       {:telemetry_poller, "~> 0.4"},
-      {:xandra, "~> 0.19"},
+      {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
       {:pretty_log, "~> 0.1"},
       {:skogsra, "~> 2.2"},
       {:telemetry, "~> 0.4"},

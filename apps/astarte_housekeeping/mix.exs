@@ -82,7 +82,7 @@ defmodule Astarte.Housekeeping.Mixfile do
 
   defp deps do
     [
-      {:xandra, "~> 0.13"},
+      {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
       {:excoveralls, "~> 0.15", only: :test},
       {:dialyxir, "~> 1.0", only: [:dev, :ci], runtime: false},
       {:plug_cowboy, "~> 2.1"},

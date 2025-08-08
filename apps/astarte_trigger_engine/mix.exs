@@ -91,7 +91,7 @@ defmodule Astarte.TriggerEngine.Mixfile do
       {:ecto, "~> 3.12"},
       {:pretty_log, "~> 0.1"},
       {:telemetry, "~> 0.4"},
-      {:xandra, "~> 0.19"},
+      {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
       {:exandra, "~> 0.13"},
       {:skogsra, "~> 2.2"},
       {:observer_cli, "~> 1.5"},
