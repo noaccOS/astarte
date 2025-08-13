@@ -86,7 +86,7 @@ defmodule Astarte.DataUpdaterPlant.Mixfile do
       {:excoveralls, "~> 0.15", only: :test},
       {:mox, "~> 1.0", only: :test},
       {:mimic, "~> 1.11", only: :test},
-      {:exandra, "~> 0.13"},
+      {:exandra, github: "noaccOS/exandra", branch: "prepare-execute-reuse-conn", override: true},
       # hex.pm package and esl/ex_rabbit_pool do not support amqp version 2.1.
       # This fork is supporting amqp ~> 2.0 and also ~> 3.0.
       {:ex_rabbit_pool, github: "leductam/ex_rabbit_pool"},

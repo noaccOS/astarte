@@ -68,8 +68,7 @@ defmodule Astarte.Pairing.Mixfile do
   defp astarte_required_modules(_) do
     [
       {:astarte_core, github: "astarte-platform/astarte_core", branch: "release-1.2"},
-      {:astarte_data_access,
-       github: "noaccOS/astarte_data_access", branch: "econnreset"},
+      {:astarte_data_access, github: "noaccOS/astarte_data_access", branch: "econnreset"},
       {:astarte_rpc, "~> 1.2"}
     ]
   end
@@ -97,7 +96,7 @@ defmodule Astarte.Pairing.Mixfile do
       # Delete when updating/removing cqerl from astarte_data_access.
       {:snappyer, "~> 1.2.10", override: true},
       {:ecto, "~> 3.12"},
-      {:exandra, "~> 0.13"},
+      {:exandra, github: "noaccOS/exandra", branch: "prepare-execute-reuse-conn", override: true},
       {:typed_ecto_schema, "~> 0.4"},
       {:cqex, "~> 1.0", only: :test},
       {:cqerl, "~> 2.1", override: true, only: :test}

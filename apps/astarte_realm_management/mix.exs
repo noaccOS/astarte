@@ -86,7 +86,7 @@ defmodule Astarte.RealmManagement.Mixfile do
       {:telemetry_metrics, "~> 0.4"},
       {:telemetry_poller, "~> 0.4"},
       {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
-      {:exandra, "~> 0.13"},
+      {:exandra, github: "noaccOS/exandra", branch: "prepare-execute-reuse-conn", override: true},
       {:typed_ecto_schema, "~> 0.4"},
       {:observer_cli, "~> 1.5"},
       {:mimic, "~> 1.11", only: :test},

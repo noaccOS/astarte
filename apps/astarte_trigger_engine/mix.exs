@@ -92,7 +92,7 @@ defmodule Astarte.TriggerEngine.Mixfile do
       {:pretty_log, "~> 0.1"},
       {:telemetry, "~> 0.4"},
       {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
-      {:exandra, "~> 0.13"},
+      {:exandra, github: "noaccOS/exandra", branch: "prepare-execute-reuse-conn", override: true},
       {:skogsra, "~> 2.2"},
       {:observer_cli, "~> 1.5"},
       # hex.pm package and esl/ex_rabbit_pool do not support amqp version 2.1.

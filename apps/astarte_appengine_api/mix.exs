@@ -99,7 +99,7 @@ defmodule Astarte.AppEngine.API.Mixfile do
       {:ex_json_schema, "~> 0.7"},
       {:phoenix_swagger, "~> 0.8"},
       {:xandra, github: "noaccOS/xandra", branch: "disconnect-error", override: true},
-      {:exandra, "~> 0.13"},
+      {:exandra, github: "noaccOS/exandra", branch: "prepare-execute-reuse-conn", override: true},
       {:typed_ecto_schema, "~> 0.4"},
       {:pretty_log, "~> 0.1"},
       {:plug_logger_with_meta, "~> 0.1"},
