@@ -40,6 +40,7 @@ defmodule Astarte.RealmManagement do
     Config.validate!()
     DataAccessConfig.validate!()
     RPCConfig.validate!()
+    Xandra.Telemetry.attach_default_handler()
 
     xandra_opts = Config.xandra_options!()
     xandra_opts = Keyword.put(xandra_opts, :atom_keys, true)

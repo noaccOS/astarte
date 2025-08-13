@@ -39,6 +39,7 @@ defmodule Astarte.AppEngine.API.Application do
     DataAccessConfig.validate!()
     RPCConfig.validate!()
     Config.validate!()
+    Xandra.Telemetry.attach_default_handler()
 
     xandra_options = Config.xandra_options!()
 

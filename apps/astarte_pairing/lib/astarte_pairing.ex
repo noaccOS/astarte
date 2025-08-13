@@ -43,6 +43,7 @@ defmodule Astarte.Pairing do
     DataAccessConfig.validate!()
     Config.validate!()
     Config.init!()
+    Xandra.Telemetry.attach_default_handler()
 
     xandra_options = repo_opts = Config.xandra_options!()
 
