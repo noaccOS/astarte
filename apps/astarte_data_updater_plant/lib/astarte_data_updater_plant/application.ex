@@ -40,6 +40,7 @@ defmodule Astarte.DataUpdaterPlant.Application do
 
     Config.validate!()
     DataAccessConfig.validate!()
+    Xandra.Telemetry.attach_default_handler()
 
     xandra_options = Config.xandra_options!()
 

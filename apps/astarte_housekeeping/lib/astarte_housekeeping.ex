@@ -31,6 +31,7 @@ defmodule Astarte.Housekeeping do
     Config.validate!()
     RPCConfig.validate!()
     DataAccessConfig.validate!()
+    Xandra.Telemetry.attach_default_handler()
 
     children = [
       Astarte.HousekeepingWeb.Telemetry,

@@ -39,6 +39,7 @@ defmodule Astarte.TriggerEngine.Application do
 
     Config.validate!()
     DataAccessConfig.validate!()
+    Xandra.Telemetry.attach_default_handler()
 
     xandra_options = Config.xandra_options!()
     xandra_cluster_options = Keyword.put(xandra_options, :name, :xandra)
