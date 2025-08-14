@@ -74,7 +74,7 @@ defmodule Astarte.Housekeeping.Mixfile do
     [
       {:astarte_core, github: "astarte-platform/astarte_core", branch: "release-1.2"},
       {:astarte_data_access,
-       github: "noaccOS/astarte_data_access", branch: "econnreset"},
+       github: "noaccOS/astarte_data_access", branch: "keepalive"},
       {:astarte_rpc, "~> 1.2"},
       {:astarte_generators, github: "astarte-platform/astarte_generators", only: [:dev, :test]}
     ]
