@@ -25,9 +25,9 @@ defmodule Astarte.Events.Triggers.Cache do
   alias Astarte.Events.Triggers.DataTrigger
   alias Astarte.Events.Triggers.Queries
 
-  @event_targets :event_targets
-  @event_volatile_targets :event_volatile_targets
-  @trigger_id :trigger_id
+  @event_targets Core.cache_name(:event_targets)
+  @event_volatile_targets Core.cache_name(:event_volatile_targets)
+  @trigger_id Core.cache_name(:trigger_id)
 
   @trigger_lifetime_ttl :timer.minutes(1)
 
@@ -374,7 +374,7 @@ defmodule Astarte.Events.Triggers.Cache do
     {:ok, new_events}
   end
 
-  @spec delete_volatile_trigger(String.t(), Astarte.DataAccess.UUID.t()) :: :ok 
+  @spec delete_volatile_trigger(String.t(), Astarte.DataAccess.UUID.t()) :: :ok
   def delete_volatile_trigger(realm_name, trigger_id) do
     cache_key = trigger_cache_id(realm_name, trigger_id)
 
@@ -551,5 +551,13 @@ defmodule Astarte.Events.Triggers.Cache do
     ]
 
     Supervisor.child_spec({ConCache, params}, id: {ConCache, cache_id})
+  end
+
+  def cache_name(cache_name_config, cache_id) do
+    case cache_name_config do
+      :local -> cache_id
+      {:via, mod} -> {:via, mod, cache_id}
+      {:via, mod, arg} -> {:via, mod, {arg, cache_id}}
+    end
   end
 end

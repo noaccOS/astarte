@@ -30,6 +30,8 @@ defmodule Astarte.Events.Triggers.Core do
   alias Astarte.Events.Triggers.Queries
   alias Astarte.Events.Triggers.ValueMatchOperators
 
+  @cache_name_config Application.compile_env(:astarte_events, :cache_names, :local)
+
   @type data_trigger :: %ProtobufDataTrigger{}
   @type device_trigger :: %ProtobufDeviceTrigger{}
   @type trigger_data :: {:data_trigger, data_trigger()} | {:device_trigger, device_trigger()}
@@ -456,5 +458,13 @@ defmodule Astarte.Events.Triggers.Core do
   def valid_trigger_for_value?(trigger, path_tokens, value) do
     path_matches?(path_tokens, trigger.path_match_tokens) and
       ValueMatchOperators.value_matches?(value, trigger.value_match_operator, trigger.known_value)
+  end
+
+  def cache_name(cache_id) do
+    case @cache_name_config do
+      :local -> cache_id
+      {:via, mod} -> {:via, mod, cache_id}
+      {:via, mod, arg} -> {:via, mod, {arg, cache_id}}
+    end
   end
 end

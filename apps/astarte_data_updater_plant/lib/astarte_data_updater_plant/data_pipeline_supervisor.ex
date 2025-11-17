@@ -33,6 +33,7 @@ defmodule Astarte.DataUpdaterPlant.DataPipelineSupervisor do
       {Horde.Registry, [keys: :unique, name: Registry.DataUpdaterRPC, members: :auto]},
       {Horde.Registry, [keys: :unique, name: Registry.AMQPDataConsumer, members: :auto]},
       {Horde.Registry, [keys: :unique, name: Registry.VMQPluginRPC, members: :auto]},
+      {Horde.Registry, [keys: :unique, name: Registry.Triggers, members: :auto]},
       {Horde.DynamicSupervisor,
        [
          name: Supervisor.MessageTracker,

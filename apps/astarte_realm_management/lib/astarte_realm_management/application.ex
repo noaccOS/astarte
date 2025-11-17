@@ -47,6 +47,7 @@ defmodule Astarte.RealmManagement.Application do
         Astarte.RealmManagementWeb.Endpoint,
         {Task.Supervisor, name: Astarte.RealmManagement.DeviceRemoverSupervisor},
         {Horde.Registry, [keys: :unique, name: Registry.DataUpdaterRPC, members: :auto]},
+        {Horde.Registry, [keys: :unique, name: Registry.Triggers, members: :auto]},
         Astarte.RealmManagement.DeviceRemoval.Scheduler
       ]
 
