@@ -1,3 +1,11 @@
+**/.direnv/
+**/.envrc
+**/.helix
+**/.nix-mix
+**/.nix-hex
+**/.jj/
+**/.git/
+
 # Standard Elixir gitignore to be applied to all apps
 **/_build
 **/cover
@@ -11,6 +19,8 @@
 **/*.beam
 **/config/*.secret.exs
 **/.elixir_ls/
+**/.lexical/
+**/.elixir-tools/
 
 # Standard Erlang gitignore to be applied to all apps
 **/.eunit
