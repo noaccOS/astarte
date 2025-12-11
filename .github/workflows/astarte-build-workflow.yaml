@@ -2,6 +2,7 @@ name: Astarte build
 
 on:
   workflow_call:
+  push:
 
 jobs:
   astarte-build:
