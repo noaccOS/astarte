@@ -334,7 +334,8 @@ defmodule Astarte.Housekeeping.Realms.Queries do
     query = """
     CREATE KEYSPACE #{keyspace_name}
     WITH replication = #{replication_map_str}
-    AND durable_writes = true;
+    AND durable_writes = true
+    AND tablets = { 'enabled': false };
     """
 
     case CSystem.execute_schema_change(query) do
@@ -1051,7 +1052,8 @@ defmodule Astarte.Housekeeping.Realms.Queries do
          query = """
          CREATE KEYSPACE #{Realm.astarte_keyspace_name()}
          WITH replication = #{replication_map_str}
-         AND durable_writes = true;
+         AND durable_writes = true
+         AND tablets = { 'enabled': false };
          """,
          {:ok, %{rows: nil, num_rows: 1}} <-
            Repo.query(query, [], consistency: consistency) do

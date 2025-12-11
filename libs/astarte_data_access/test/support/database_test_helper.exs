@@ -21,14 +21,16 @@ defmodule Astarte.DataAccess.DatabaseTestHelper do
   CREATE KEYSPACE astarte
     WITH
     replication = {'class': 'SimpleStrategy', 'replication_factor': '1'} AND
-    durable_writes = true;
+    durable_writes = true AND
+    tablets = { 'enabled': false };
   """
 
   @create_autotestrealm """
     CREATE KEYSPACE autotestrealm
       WITH
         replication = {'class': 'SimpleStrategy', 'replication_factor': '1'} AND
-        durable_writes = true;
+        durable_writes = true AND
+        tablets = { 'enabled': false };
   """
   @create_realms_table """
   CREATE TABLE astarte.realms (

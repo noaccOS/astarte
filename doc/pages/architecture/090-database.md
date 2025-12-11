@@ -35,7 +35,8 @@ Astarte needs an `astarte` keyspace to store its own data.
 ```sql
 CREATE KEYSPACE astarte
   WITH replication = {'class': 'SimpleStrategy', 'replication_factor': <replication factor>}  AND
-    durable_writes = true;
+    durable_writes = true AND
+    tablets = { 'enabled': false };
 ```
 
 ```sql
@@ -73,7 +74,8 @@ Some data storage tables might be created when required, whereas all other table
 ```sql
 CREATE KEYSPACE <realm name>
   WITH replication = {'class': 'SimpleStrategy', 'replication_factor': :replication_factor} AND
-    durable_writes = true;
+    durable_writes = true AND
+    tablets = { 'enabled': false };
 ```
 
 ```sql

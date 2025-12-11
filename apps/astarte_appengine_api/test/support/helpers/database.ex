@@ -68,7 +68,8 @@ defmodule Astarte.Helpers.Database do
     CREATE KEYSPACE #{Realm.keyspace_name(@test_realm)}
       WITH
         replication = {'class': 'SimpleStrategy', 'replication_factor': '1'} AND
-        durable_writes = true;
+        durable_writes = true AND
+        tablets = { 'enabled': false };
   """
 
   @create_kv_store """
