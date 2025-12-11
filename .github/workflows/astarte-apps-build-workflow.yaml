@@ -69,7 +69,7 @@ jobs:
       fail-fast: false
       matrix:
         database:
-          - "cassandra:3.11.15"
+          - "cassandra:5.0.6"
           - "scylladb/scylla:2025.2.2"
         rabbitmq:
           - "rabbitmq:3.12.0-management"
