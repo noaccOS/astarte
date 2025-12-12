@@ -225,6 +225,7 @@ defmodule AstarteE2E.AmqpDataTrigger do
         },
         "simple_triggers" => [
           %{
+            "device_id" => encoded_device_id,
             "type" => "data_trigger",
             "on" => "incoming_data",
             "interface_name" => properties_interface.interface_name,

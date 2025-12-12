@@ -43,6 +43,7 @@ defmodule AstarteE2E.AmqpDeviceTrigger do
   def init(opts) do
     realm = Keyword.fetch!(opts, :realm)
     device_id = Keyword.fetch!(opts, :device_id)
+    encoded_device_id = Astarte.Core.Device.encode_device_id(device_id)
     interfaces = Keyword.fetch!(opts, :interfaces)
 
     state = %{
@@ -53,6 +54,8 @@ defmodule AstarteE2E.AmqpDeviceTrigger do
       device_pid: nil,
       consumer_pid: nil
     }
+
+    Logger.info("AMQP Device Trigger: starting with device #{encoded_device_id}")
 
     {:ok, state, {:continue, :install_triggers}}
   end
