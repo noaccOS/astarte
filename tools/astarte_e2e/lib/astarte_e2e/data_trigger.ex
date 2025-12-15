@@ -32,6 +32,9 @@ defmodule AstarteE2E.DataTrigger do
 
   def start_link(init_arg) do
     device_id = CoreDevice.random_device_id()
+    encoded = CoreDevice.encode_device_id(device_id)
+
+    Logger.warning("Data Trigger: starting with device_id #{encoded} #{inspect(device_id)}")
     realm = Config.realm!()
     init_arg = init_arg |> Keyword.merge(device_id: device_id, realm: realm)
     GenServer.start_link(__MODULE__, init_arg, name: via_tuple(realm, device_id))

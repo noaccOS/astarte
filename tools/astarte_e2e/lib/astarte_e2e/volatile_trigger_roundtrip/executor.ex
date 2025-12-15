@@ -39,6 +39,9 @@ defmodule AstarteE2E.VolatileTriggerRoundtrip.Executor do
     with {:ok, realm} <- Config.realm() do
       interfaces = Keyword.get(opts, :interfaces)
       device_id = Astarte.Core.Device.random_device_id()
+      encoded = Astarte.Core.Device.encode_device_id(device_id)
+      Logger.warning("Volatile: starting with device_id #{encoded} #{inspect(device_id)}")
+
 
       device_opts = [realm: realm, device_id: device_id, interfaces: interfaces]
       encoded_id = Astarte.Core.Device.encode_device_id(device_id)

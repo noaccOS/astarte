@@ -36,6 +36,8 @@ defmodule AstarteE2E.AmqpDataTrigger do
   def init(opts) do
     with {:ok, realm} <- Config.realm() do
       device_id = Astarte.Core.Device.random_device_id()
+      encoded = Astarte.Core.Device.encode_device_id(device_id)
+      Logger.warning("AMQP Data Trigger: starting with device_id #{encoded} #{inspect(device_id)}")
       interfaces = Keyword.fetch!(opts, :interfaces)
       device_opts = [realm: realm, device_id: device_id, interfaces: interfaces]
 

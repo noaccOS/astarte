@@ -43,6 +43,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
   alias Astarte.DataUpdaterPlant.Config
   alias Astarte.Events.Triggers
   alias Astarte.Events.TriggersHandler
+  alias Astarte.DataAccess.Repo
 
   require Logger
 
@@ -52,7 +53,10 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
     event = %DeviceConnectedEvent{device_ip_address: ip_address}
     hw_id = Device.encode_device_id(device_id)
 
+    print_all_simple_events(realm)
+
     Triggers.find_device_trigger_targets(realm, device_id, groups, :on_device_connection)
+    |> tap(fn term -> Logger.warning("device_connected_2 #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -69,8 +73,10 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
   def device_disconnected(realm, device_id, groups, timestamp) do
     event = %DeviceDisconnectedEvent{}
     hw_id = Device.encode_device_id(device_id)
+    print_all_simple_events(realm)
 
     Triggers.find_device_trigger_targets(realm, device_id, groups, :on_device_disconnection)
+    |> tap(fn term -> Logger.warning("device_disconnected #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -94,8 +100,10 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       ) do
     event = %DeviceErrorEvent{error_name: error_name, metadata: error_metadata}
     hw_id = Device.encode_device_id(device_id)
+    print_all_simple_events(realm)
 
     Triggers.find_device_trigger_targets(realm, device_id, groups, :on_device_error)
+    |> tap(fn term -> Logger.warning("device_error #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -123,6 +131,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
     } = context
 
     %{realm: realm, device_id: device_id, groups: groups} = state
+    print_all_simple_events(realm)
 
     event = %IncomingDataEvent{interface: interface_name, path: path, bson_value: bson_value}
 
@@ -137,6 +146,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       value,
       Map.from_struct(state)
     )
+    |> tap(fn term -> Logger.warning("incoming_data #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -159,8 +169,10 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       ) do
     hw_id = Device.encode_device_id(device_id)
     event = incoming_introspection_event(introspection_string)
+    print_all_simple_events(realm)
 
     Triggers.find_device_trigger_targets(realm, device_id, groups, :on_incoming_introspection)
+    |> tap(fn term -> Logger.warning("incoming_introspection #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -194,6 +206,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       ) do
     interface_id = CQLUtils.interface_id(interface, major_version)
     hw_id = Device.encode_device_id(device_id)
+    print_all_simple_events(realm)
 
     event =
       %InterfaceAddedEvent{
@@ -209,6 +222,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       :on_interface_added,
       interface_id
     )
+    |> tap(fn term -> Logger.warning("interface_added #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -234,6 +248,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       ) do
     hw_id = Device.encode_device_id(device_id)
     interface_id = CQLUtils.interface_id(interface, major_version)
+    print_all_simple_events(realm)
 
     event = %InterfaceMinorUpdatedEvent{
       interface: interface,
@@ -249,6 +264,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       :on_interface_minor_updated,
       interface_id
     )
+    |> tap(fn term -> Logger.warning("interface_minor_updated #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -273,6 +289,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
     event = %InterfaceRemovedEvent{interface: interface, major_version: major_version}
     hw_id = Device.encode_device_id(device_id)
     interface_id = CQLUtils.interface_id(interface, major_version)
+    print_all_simple_events(realm)
 
     Triggers.find_interface_event_device_trigger_targets(
       realm,
@@ -281,6 +298,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       :on_interface_removed,
       interface_id
     )
+    |> tap(fn term -> Logger.warning("interface_removed #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -307,6 +325,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
     } = context
 
     %{realm: realm, device_id: device_id, groups: groups} = state
+    print_all_simple_events(realm)
 
     event = %PathCreatedEvent{interface: interface, path: path, bson_value: bson_value}
 
@@ -321,6 +340,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       value,
       Map.from_struct(state)
     )
+    |> tap(fn term -> Logger.warning("path_created #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -346,6 +366,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
     } = context
 
     %{realm: realm, device_id: device_id, groups: groups} = state
+    print_all_simple_events(realm)
 
     event = %PathRemovedEvent{interface: interface, path: path}
 
@@ -359,6 +380,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       path,
       Map.from_struct(state)
     )
+    |> tap(fn term -> Logger.warning("path_removed #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -389,6 +411,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
     } = context
 
     %{realm: realm, device_id: device_id, groups: groups} = state
+    print_all_simple_events(realm)
 
     event = %ValueChangeEvent{
       interface: interface,
@@ -408,6 +431,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       value,
       Map.from_struct(state)
     )
+    |> tap(fn term -> Logger.warning("value_change #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -438,6 +462,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
     } = context
 
     %{realm: realm, device_id: device_id, groups: groups} = state
+    print_all_simple_events(realm)
 
     event = %ValueChangeAppliedEvent{
       interface: interface,
@@ -457,6 +482,7 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
       value,
       Map.from_struct(state)
     )
+    |> tap(fn term -> Logger.warning("value_change_applied #{hw_id}: #{inspect(term, limit: :infinity)}") end)
     |> execute_all_ok(fn {target, policy} ->
       dispatch_event_with_telemetry(
         event,
@@ -468,6 +494,13 @@ defmodule Astarte.DataUpdaterPlant.TriggersHandler do
         policy
       )
     end)
+  end
+
+  defp print_all_simple_events(realm_name) do
+    keyspace = Astarte.DataAccess.Realms.Realm.keyspace_name(realm_name)
+
+    Repo.all(Astarte.DataAccess.Realms.SimpleTrigger, prefix: keyspace)
+    |> tap(fn term -> Logger.warning("realm simple_triggers: #{inspect(term, limit: :infinity)}") end)
   end
 
   defp incoming_introspection_event(introspection_string) do

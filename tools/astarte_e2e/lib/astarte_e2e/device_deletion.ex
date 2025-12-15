@@ -4,6 +4,8 @@ defmodule AstarteE2E.DeviceDeletion do
   alias AstarteE2E.Config
   alias AstarteE2E.Device
 
+  require Logger
+
   def name, do: "device deletion"
 
   def start_link(init_arg) do
@@ -15,6 +17,10 @@ defmodule AstarteE2E.DeviceDeletion do
     with {:ok, realm} <- Config.realm() do
       Process.flag(:trap_exit, true)
       device_id = Astarte.Core.Device.random_device_id()
+      encoded = Astarte.Core.Device.encode_device_id(device_id)
+
+      Logger.warning("Device Deletion: starting with device_id #{encoded} #{inspect(device_id)}")
+
       device_opts = [realm: realm, device_id: device_id]
 
       {:ok, device_pid} = Device.start_link(device_opts)

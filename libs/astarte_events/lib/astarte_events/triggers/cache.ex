@@ -116,6 +116,7 @@ defmodule Astarte.Events.Triggers.Cache do
           Core.fetch_triggers_data()
         ) :: [DataTrigger.t()]
   def find_data_triggers(realm_name, device_id, groups, event_key, data) do
+    dbg({realm_name, device_id, event_key})
     interface_ids =
       case Map.fetch(data, :interface_ids_to_name) do
         :error -> []
@@ -140,12 +141,12 @@ defmodule Astarte.Events.Triggers.Cache do
       end
 
     [
-      any_interface_cache(realm_name, event_key, data),
-      device_and_any_interface_cache(realm_name, event_key, device_id, data),
-      device_and_interface,
-      interface,
-      group_and_any_interface,
-      groups_and_interfaces
+      any_interface_cache(realm_name, event_key, data) |> dbg(),
+      device_and_any_interface_cache(realm_name, event_key |> dbg(), device_id, data),
+      device_and_interface |> dbg(),
+      interface |> dbg(),
+      group_and_any_interface |> dbg(),
+      groups_and_interfaces |> dbg()
     ]
     |> List.flatten()
   end
@@ -374,7 +375,7 @@ defmodule Astarte.Events.Triggers.Cache do
     {:ok, new_events}
   end
 
-  @spec delete_volatile_trigger(String.t(), Astarte.DataAccess.UUID.t()) :: :ok 
+  @spec delete_volatile_trigger(String.t(), Astarte.DataAccess.UUID.t()) :: :ok
   def delete_volatile_trigger(realm_name, trigger_id) do
     cache_key = trigger_cache_id(realm_name, trigger_id)
 

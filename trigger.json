@@ -1,0 +1,20 @@
+{
+  "name": "my_trigger_lru",
+  "action": {
+    "amqp_exchange": "astarte_events_test_lru",
+    "amqp_routing_key": "lru",
+    "amqp_message_expiration_ms": 20000,
+    "amqp_message_persistent": false
+  },
+  "simple_triggers": [
+    {
+      "type": "data_trigger",
+      "on": "incoming_data",
+      "device_id": "lRU4UXi4RJyHTr7za0D4Zw",
+      "interface_name": "org.astarte-platform.genericsensors.Values",
+      "interface_major": 1,
+      "match_path": "/streamTest/value",
+      "value_match_operator": "*"
+    }
+  ]
+}
