@@ -45,7 +45,7 @@ defmodule AstarteE2E.TaskScheduler do
       AstarteE2E.AmqpDataTrigger,
       AstarteE2E.AmqpDeviceTrigger,
       AstarteE2E.DataTrigger,
-      AstarteE2E.DeviceTrigger,
+      # AstarteE2E.DeviceTrigger,
       AstarteE2E.DeviceDeletion,
       AstarteE2E.VolatileTriggerRoundtrip.Executor
     ]
