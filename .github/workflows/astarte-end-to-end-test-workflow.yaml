@@ -62,8 +62,8 @@ jobs:
           ./wait-for-astarte-docker-compose
       - name: Install astartectl
         run: |
-          wget https://github.com/astarte-platform/astartectl/releases/download/v22.11.02/astartectl_22.11.02_linux_x86_64.tar.gz
-          tar xf astartectl_22.11.02_linux_x86_64.tar.gz
+          wget https://github.com/astarte-platform/astartectl/releases/download/v24.5.3/astartectl_24.5.3_linux_x86_64.tar.gz
+          tar xf astartectl_24.5.3_linux_x86_64.tar.gz
           chmod +x astartectl
       - name: Generate realm keypair and JWT
         run: |
