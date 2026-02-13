@@ -55,8 +55,6 @@ defmodule Astarte.Housekeeping.ReleaseTasks do
 
         raise "init_database failed"
     end
-
-    :ok = stop_services()
   end
 
   def migrate do
@@ -77,8 +75,6 @@ defmodule Astarte.Housekeeping.ReleaseTasks do
 
             raise "migrate failed"
         end
-
-        :ok = stop_services()
 
       {:ok, false} ->
         Logger.error("Cannot migrate the database, Astarte keyspace does not exist",
@@ -119,14 +115,5 @@ defmodule Astarte.Housekeeping.ReleaseTasks do
     {:ok, _} = Application.ensure_all_started(:astarte_data_access)
 
     :ok
-  end
-
-  defp stop_services do
-    _ =
-      Logger.info("Astarte database correctly initialized",
-        tag: "astarte_db_initialization_finished"
-      )
-
-    :init.stop()
   end
 end
