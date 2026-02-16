@@ -56,34 +56,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Server do
     {:ok, {realm, device_id, message_tracker}, timeout}
   end
 
-  # TODO remove this when all heartbeats will be moved to internal
-  @impl GenServer
-  def handle_cast({:handle_heartbeat, message_id, timestamp}, state) do
-    timeout = Config.data_updater_deactivation_interval_ms!()
-
-    if MessageTracker.can_process_message(state.message_tracker, message_id) do
-      new_state = Core.HeartbeatHandler.handle_heartbeat(state, message_id, timestamp)
-      {:noreply, new_state, timeout}
-    else
-      {:noreply, state, timeout}
-    end
-  end
-
-  @impl GenServer
-  def handle_cast({:handle_internal, payload, path, message_id, timestamp}, state) do
-    timeout = Config.data_updater_deactivation_interval_ms!()
-
-    if MessageTracker.can_process_message(state.message_tracker, message_id) do
-      case Impl.handle_internal(state, payload, path, message_id, timestamp) do
-        {:continue, new_state} -> {:noreply, new_state, timeout}
-        # No more messages from this device, we can stop this process
-        {:stop, new_state} -> shutdown(new_state)
-      end
-    else
-      {:noreply, state, timeout}
-    end
-  end
-
   @impl GenServer
   def handle_cast({:handle_data, interface, path, payload, message_id, timestamp}, state) do
     timeout = Config.data_updater_deactivation_interval_ms!()
