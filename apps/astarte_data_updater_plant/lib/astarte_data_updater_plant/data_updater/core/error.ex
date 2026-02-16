@@ -119,4 +119,77 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
       do: Core.DataHandler.update_stats(state, interface, nil, path, payload),
       else: state
   end
+
+  def handle_error_mississippi(context, error, opts \\ []) do
+    %{
+      state: state,
+      timestamp: timestamp
+    } = context
+
+    %{
+      message: message,
+      error: error,
+      logger_metadata: logger_metadata
+    } = error
+
+    ask_clean_session = Keyword.get(opts, :ask_clean_session, true)
+
+    Logger.warning(message, logger_metadata)
+
+    {:ok, state} =
+      case ask_clean_session do
+        true -> Core.Device.ask_clean_session(state, timestamp)
+        false -> {:ok, state}
+      end
+
+    context = %{context | state: state}
+
+    continue_arg = {:mississippi_error, context, error, opts}
+    {:discard, error, state, {:continue, continue_arg}}
+  end
+
+  def continue_error(context, error, opts) do
+    %{
+      state: state,
+      timestamp: timestamp,
+      payload: payload
+    } = context
+
+    interface = Map.get(context, :interface, "")
+    path = Map.get(context, :path, "")
+
+    %{
+      error_name: error_name
+    } = error
+
+    update_stats = Keyword.get(opts, :update_stats, true)
+    execute_error_triggers = Keyword.get(opts, :execute_error_triggers, true)
+
+    :telemetry.execute(
+      [:astarte, :data_updater_plant, :data_updater, :discarded_message],
+      %{},
+      %{realm: state.realm}
+    )
+
+    if execute_error_triggers do
+      base64_payload = Base.encode64(payload)
+
+      error_metadata = %{
+        "interface" => inspect(interface),
+        "path" => inspect(path),
+        "base64_payload" => base64_payload
+      }
+
+      Core.Trigger.execute_device_error_triggers(
+        state,
+        error_name,
+        error_metadata,
+        timestamp
+      )
+    end
+
+    if update_stats,
+      do: Core.DataHandler.update_stats(state, interface, nil, path, payload),
+      else: state
+  end
 end

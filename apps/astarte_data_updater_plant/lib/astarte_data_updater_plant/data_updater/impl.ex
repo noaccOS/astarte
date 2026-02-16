@@ -39,6 +39,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
 
   @msg_type_header "x_astarte_msg_type"
   @ip_header "x_astarte_remote_ip"
+  @internal_path_header "x_astarte_internal_path"
 
   use GenServer
 
@@ -57,17 +58,17 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     Logger.metadata(realm: realm, device_id: encoded_device_id)
     Logger.info("Created device process.", tag: "device_process_created")
 
-    device_status = Queries.get_device_status(new_state.realm, device_id)
+    device_status = Queries.get_device_status(state.realm, device_id)
 
     # TODO this could be a bang!
-    {:ok, ttl} = Queries.get_datastream_maximum_storage_retention(new_state.realm)
+    {:ok, ttl} = Queries.get_datastream_maximum_storage_retention(state.realm)
 
-    Map.merge(new_state, device_status)
+    Map.merge(state, device_status)
     |> Map.put(:datastream_maximum_storage_retention, ttl)
   end
 
   @impl true
-  def handle_message(_payload, headers, _message_id, timestamp, state) do
+  def handle_message(payload, headers, _message_id, timestamp, state) do
     %{@msg_type_header => message_type} = headers
 
     case message_type do
@@ -77,6 +78,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
 
       "disconnection" ->
         handle_disconnection(state, timestamp)
+
+      "heartbeat" ->
+        Core.HeartbeatHandler.handle_heartbeat(state, timestamp)
+
+      "internal" ->
+        %{@internal_path_header => internal_path} = headers
+        handle_internal(state, internal_path, payload, timestamp)
 
       _ ->
         # Ack all messages for now
@@ -96,12 +104,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
       _ ->
         {:ok, state}
     end
-  end
-
-  @impl true
-  def handle_continue(_, state) do
-    # All is ok for now
-    {:ok, state}
   end
 
   @impl true
@@ -227,8 +229,14 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     {:ack, :ok, new_state}
   end
 
-  def handle_internal(state, path, payload, message_id, timestamp) do
-    Core.InternalHandler.handle_internal(state, path, payload, message_id, timestamp)
+  def handle_internal(state, path, payload, timestamp) do
+    Core.InternalHandler.handle_internal(state, path, payload, timestamp)
+  end
+
+  @impl true
+  def handle_continue({:mississippi_error, context, error, opts}, _state) do
+    new_state = Core.Error.continue_error(context, error, opts)
+    {:ok, new_state}
   end
 
   def start_device_deletion(state, timestamp) do

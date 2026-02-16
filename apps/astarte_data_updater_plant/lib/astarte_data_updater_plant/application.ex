@@ -27,6 +27,7 @@ defmodule Astarte.DataUpdaterPlant.Application do
   alias Astarte.DataAccess.Config, as: DataAccessConfig
   alias Astarte.DataUpdaterPlant.Config
   alias Astarte.DataUpdaterPlant.DataUpdater.Impl
+  alias Astarte.Events.Config, as: EventsConfig
 
   @app_version Mix.Project.config()[:version]
 
@@ -51,12 +52,12 @@ defmodule Astarte.DataUpdaterPlant.Application do
     Supervisor.start_link(children, opts)
   end
 
-  defp mississippi_consumer_opts!() do
+  defp mississippi_consumer_opts! do
     [
-      amqp_consumer_options: [host: Config.amqp_consumer_host!()],
+      amqp_consumer_options: Config.amqp_consumer_options!(),
       mississippi_config: [
         queues: [
-          events_exchange_name: Config.events_exchange_name!(),
+          events_exchange_name: EventsConfig.amqp_events_exchange_name!(),
           prefix: Config.data_queue_prefix!(),
           range_start: Config.data_queue_range_start!(),
           range_end: Config.data_queue_range_end!(),
