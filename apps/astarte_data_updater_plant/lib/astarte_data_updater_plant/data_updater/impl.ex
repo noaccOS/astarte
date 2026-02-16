@@ -75,6 +75,9 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
         %{@ip_header => ip_address} = headers
         handle_connection(state, ip_address, timestamp)
 
+      "disconnection" ->
+        handle_disconnection(state, timestamp)
+
       _ ->
         # Ack all messages for now
         {:ack, :ok, state}
@@ -212,6 +215,18 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     {:ok, state}
   end
 
+  def handle_disconnection(state, timestamp) do
+    new_state =
+      state
+      |> TimeBasedActions.execute_time_based_actions(timestamp)
+      |> Core.Device.set_device_disconnected(timestamp)
+      |> Map.put(:last_seen_message, timestamp)
+
+    Logger.info("Device disconnected.", tag: "device_disconnected")
+
+    {:ack, :ok, new_state}
+  end
+
   def handle_internal(state, path, payload, message_id, timestamp) do
     Core.InternalHandler.handle_internal(state, path, payload, message_id, timestamp)
   end
@@ -221,18 +236,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     new_state = TimeBasedActions.execute_time_based_actions(state, timestamp)
 
     {:ok, new_state}
-  end
-
-  def handle_disconnection(state, message_id, timestamp) do
-    new_state =
-      state
-      |> TimeBasedActions.execute_time_based_actions(timestamp)
-      |> Core.Device.set_device_disconnected(timestamp)
-
-    MessageTracker.ack_delivery(new_state.message_tracker, message_id)
-    Logger.info("Device disconnected.", tag: "device_disconnected")
-
-    %{new_state | last_seen_message: timestamp}
   end
 
   def handle_data(%State{discard_messages: true} = state, _, _, _, message_id, _) do
