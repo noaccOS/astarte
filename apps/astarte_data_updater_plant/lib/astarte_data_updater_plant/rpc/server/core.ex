@@ -1,7 +1,7 @@
 #
 # This file is part of Astarte.
 #
-# Copyright 2025 SECO Mind Srl
+# Copyright 2025 - 2026 SECO Mind Srl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,13 +38,10 @@ defmodule Astarte.DataUpdaterPlant.RPC.Server.Core do
       trigger_target: trigger_target
     } = volatile_trigger
 
-    with {:ok, device_id} <- decode_and_verify(realm, encoded_device_id),
-         {:ok, dup} <- DataUpdater.get_data_updater_process({realm, device_id}) do
-      signal =
-        {:handle_install_volatile_trigger, parent_id, trigger_id, simple_trigger, trigger_target}
+    signal =
+      {:install_volatile_trigger, parent_id, trigger_id, simple_trigger, trigger_target}
 
-      GenServer.call(dup, {:handle_signal, signal})
-    end
+    signal_existing_device(realm, encoded_device_id, signal)
   end
 
   def delete_volatile_trigger(delete_request) do
@@ -54,16 +51,20 @@ defmodule Astarte.DataUpdaterPlant.RPC.Server.Core do
       trigger_id: trigger_id
     } = delete_request
 
-    with {:ok, device_id} <- decode_and_verify(realm, encoded_device_id),
-         {:ok, dup} <- DataUpdater.get_data_updater_process({realm, device_id}) do
-      GenServer.call(dup, {:handle_delete_volatile_trigger, trigger_id})
-    end
+    signal = {:delete_volatile_trigger, trigger_id}
+    signal_existing_device(realm, encoded_device_id, signal)
   end
 
-  defp decode_and_verify(realm_name, encoded_device_id) do
+  def start_device_deletion(realm, encoded_device_id, timestamp) do
+    signal = {:start_device_deletion, timestamp}
+    signal_existing_device(realm, encoded_device_id, signal)
+  end
+
+  defp signal_existing_device(realm, encoded_device_id, signal) do
     with {:ok, device_id} <- Device.decode_device_id(encoded_device_id),
-         :ok <- verify_device_exists(realm_name, device_id) do
-      {:ok, device_id}
+         :ok <- verify_device_exists(realm, device_id),
+         {:ok, dup} <- DataUpdater.get_data_updater_process({realm, device_id}) do
+      DataUpdater.handle_signal(dup, signal)
     end
   end
 

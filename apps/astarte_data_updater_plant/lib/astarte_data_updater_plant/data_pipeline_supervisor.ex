@@ -23,10 +23,6 @@ defmodule Astarte.DataUpdaterPlant.DataPipelineSupervisor do
   use Supervisor
 
   alias Astarte.DataUpdater.DeletionScheduler
-  alias Astarte.DataUpdaterPlant.AMQPEventsProducer
-  alias Astarte.DataUpdaterPlant.Config
-  alias Astarte.DataUpdaterPlant.ConsumersSupervisor
-  alias Astarte.DataUpdaterPlant.RPC.Handler
 
   def start_link(init_arg) do
     Supervisor.start_link(__MODULE__, init_arg, name: __MODULE__)

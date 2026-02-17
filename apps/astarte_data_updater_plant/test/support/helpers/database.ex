@@ -502,12 +502,6 @@ defmodule Astarte.Helpers.Database do
     DateTime.to_unix(date_time, :millisecond) * 10_000
   end
 
-  def gen_tracking_id do
-    message_id = :erlang.unique_integer([:monotonic]) |> Integer.to_string()
-    delivery_tag = {:injected_msg, make_ref()}
-    {message_id, delivery_tag}
-  end
-
   def random_device_id do
     seq = :crypto.strong_rand_bytes(16)
     <<u0::48, _::4, u1::12, _::2, u2::62>> = seq

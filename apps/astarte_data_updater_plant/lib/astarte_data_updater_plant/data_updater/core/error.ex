@@ -25,7 +25,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
   This module is responsible for providing utilities to handle errors during the handling of messages
   """
   alias Astarte.DataUpdaterPlant.DataUpdater.Core
-  alias Astarte.DataUpdaterPlant.MessageTracker
 
   require Logger
 
@@ -64,71 +63,12 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
   def handle_error(context, error, opts \\ []) do
     %{
       state: state,
-      message_id: message_id,
-      timestamp: timestamp,
-      payload: payload
-    } = context
-
-    interface = Map.get(context, :interface, "")
-    path = Map.get(context, :path, "")
-
-    %{
-      message: message,
-      logger_metadata: logger_metadata,
-      error_name: error_name
-    } = error
-
-    update_stats = Keyword.get(opts, :update_stats, true)
-    ask_clean_session = Keyword.get(opts, :ask_clean_session, true)
-    execute_error_triggers = Keyword.get(opts, :execute_error_triggers, true)
-
-    Logger.warning(message, logger_metadata)
-
-    {:ok, state} =
-      case ask_clean_session do
-        true -> Core.Device.ask_clean_session(state, timestamp)
-        false -> {:ok, state}
-      end
-
-    MessageTracker.discard(state.message_tracker, message_id)
-
-    :telemetry.execute(
-      [:astarte, :data_updater_plant, :data_updater, :discarded_message],
-      %{},
-      %{realm: state.realm}
-    )
-
-    base64_payload = Base.encode64(payload)
-
-    error_metadata = %{
-      "interface" => inspect(interface),
-      "path" => inspect(path),
-      "base64_payload" => base64_payload
-    }
-
-    if execute_error_triggers,
-      do:
-        Core.Trigger.execute_device_error_triggers(
-          state,
-          error_name,
-          error_metadata,
-          timestamp
-        )
-
-    if update_stats,
-      do: Core.DataHandler.update_stats(state, interface, nil, path, payload),
-      else: state
-  end
-
-  def handle_error_mississippi(context, error, opts \\ []) do
-    %{
-      state: state,
       timestamp: timestamp
     } = context
 
     %{
       message: message,
-      error: error,
+      error: error_atom,
       logger_metadata: logger_metadata
     } = error
 
@@ -144,8 +84,8 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.Error do
 
     context = %{context | state: state}
 
-    continue_arg = {:mississippi_error, context, error, opts}
-    {:discard, error, state, {:continue, continue_arg}}
+    continue_arg = {:handle_error, context, error, opts}
+    {:discard, error_atom, state, {:continue, continue_arg}}
   end
 
   def continue_error(context, error, opts) do

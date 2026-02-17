@@ -25,11 +25,11 @@ end
 defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
   use Astarte.Cases.Data, async: true
   use Astarte.Cases.Device
+  use Astarte.Cases.DataUpdater
   use ExUnitProperties
   use Mimic
 
   alias Astarte.Core.Mapping.ValueType
-  alias Astarte.DataUpdaterPlant.DataUpdater
   alias Astarte.DataUpdaterPlant.DataUpdater.Core
   alias Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler
   alias Astarte.DataUpdaterPlant.DataUpdater.PayloadsDecoder
@@ -38,8 +38,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
   import Astarte.InterfaceUpdateGenerators
 
   setup_all %{realm_name: realm_name, device: device} do
-    setup_data_updater(realm_name, device.encoded_id)
-    state = DataUpdater.dump_state(realm_name, device.encoded_id)
+    state = dump_state(realm_name, device.encoded_id)
 
     %{state: state}
   end
@@ -54,7 +53,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -64,13 +62,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         |> Enum.at(0)
         |> Map.put(:interface, invalid_name)
 
-      expect(Core.Error, :handle_error, fn rec_context, _error, [update_stats: false] ->
+      expect(Core.Error, :handle_error, fn rec_context, error, [update_stats: false] ->
         assert similar_context?(context, rec_context)
-        state
+        {:discard, error.error, state}
       end)
 
-      assert ^state =
-               DataHandler.handle_data(state, interface, path, payload, message_id, timestamp)
+      assert {:discard, _reason, ^state} =
+               DataHandler.handle_data(state, interface, path, payload, timestamp)
     end
 
     test "an invalid path", context do
@@ -82,7 +80,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -92,13 +89,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         |> Enum.at(0)
         |> Map.put(:path, invalid_path)
 
-      expect(Core.Error, :handle_error, fn rec_context, _error ->
+      expect(Core.Error, :handle_error, fn rec_context, error ->
         assert similar_context?(context, rec_context)
-        state
+        {:discard, error.error, state}
       end)
 
-      assert ^state =
-               DataHandler.handle_data(state, interface, path, payload, message_id, timestamp)
+      assert {:discard, _reason, ^state} =
+               DataHandler.handle_data(state, interface, path, payload, timestamp)
     end
 
     test "an invalid doublke-slashed path", test_context do
@@ -110,7 +107,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -120,18 +116,17 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         |> Enum.at(0)
         |> Map.put(:path, invalid_path)
 
-      expect(Core.Error, :handle_error, fn rec_context, _error ->
+      expect(Core.Error, :handle_error, fn rec_context, error ->
         assert similar_context?(context, rec_context)
-        state
+        {:discard, error.error, state}
       end)
 
-      assert ^state =
+      assert {:discard, _reason, ^state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -142,7 +137,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -151,22 +145,21 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         gen_context(state, interfaces)
         |> Enum.at(0)
 
-      expect(Core.Error, :handle_error, fn rec_context, _error ->
+      expect(Core.Error, :handle_error, fn rec_context, error ->
         assert similar_context?(context, rec_context)
-        state
+        {:discard, error.error, state}
       end)
 
       expect(Core.Interface, :maybe_handle_cache_miss, fn nil, ^interface, ^state ->
         {:error, :interface_loading_failed}
       end)
 
-      assert ^state =
+      assert {:discard, _reason, ^state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -181,7 +174,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -192,15 +184,14 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       {:ok, _descriptor, new_state} =
         Core.Interface.maybe_handle_cache_miss(nil, interface, state)
 
-      expect(Core.Error, :handle_error, fn context, _error -> context.state end)
+      expect(Core.Error, :handle_error, &discard_error/2)
 
-      assert ^new_state =
+      assert {:discard, _reason, ^new_state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -215,7 +206,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -232,15 +222,14 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         {:error, :mapping_not_found}
       end)
 
-      expect(Core.Error, :handle_error, fn context, _error -> context.state end)
+      expect(Core.Error, :handle_error, &discard_error/2)
 
-      assert ^new_state =
+      assert {:discard, _reason, ^new_state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -255,7 +244,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -272,15 +260,14 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         {:guessed, :non_relevant}
       end)
 
-      expect(Core.Error, :handle_error, fn context, _error -> context.state end)
+      expect(Core.Error, :handle_error, &discard_error/2)
 
-      assert ^new_state =
+      assert {:discard, _reason, ^new_state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -295,7 +282,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -310,15 +296,14 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         {:error, :undecodable_bson_payload}
       end)
 
-      expect(Core.Error, :handle_error, fn context, _error -> context.state end)
+      expect(Core.Error, :handle_error, &discard_error/2)
 
-      assert ^new_state =
+      assert {:discard, _reason, ^new_state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -333,7 +318,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -345,18 +329,17 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         Core.Interface.maybe_handle_cache_miss(nil, interface, state)
 
       expect(PayloadsDecoder, :decode_bson_payload, fn ^payload, ^timestamp ->
-        {%UnexpectedValueType{}, DateTime.utc_now(), nil}
+        {:ok, {%UnexpectedValueType{}, DateTime.utc_now(), nil}}
       end)
 
-      expect(Core.Error, :handle_error, fn context, _error -> context.state end)
+      expect(Core.Error, :handle_error, &discard_error/2)
 
-      assert ^new_state =
+      assert {:discard, _reason, ^new_state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -371,7 +354,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -383,18 +365,17 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         Core.Interface.maybe_handle_cache_miss(nil, interface, state)
 
       expect(PayloadsDecoder, :decode_bson_payload, fn ^payload, ^timestamp ->
-        {%{"an_unexpected_key" => nil}, DateTime.utc_now(), nil}
+        {:ok, {%{"an_unexpected_key" => nil}, DateTime.utc_now(), nil}}
       end)
 
-      expect(Core.Error, :handle_error, fn context, _error -> context.state end)
+      expect(Core.Error, :handle_error, &discard_error/2)
 
-      assert ^new_state =
+      assert {:discard, _reason, ^new_state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
@@ -409,7 +390,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface,
-        message_id: message_id,
         path: path,
         timestamp: timestamp,
         payload: payload
@@ -421,7 +401,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         Core.Interface.maybe_handle_cache_miss(nil, interface, state)
 
       expect(ValueType, :validate_value, fn _, value ->
-        {payload_value, _, _} =
+        {:ok, {payload_value, _, _}} =
           PayloadsDecoder.decode_bson_payload(payload, DateTime.utc_now(:millisecond))
 
         assert valid_value?(payload_value, value)
@@ -429,23 +409,23 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
         {:error, :value_size_exceeded}
       end)
 
-      expect(Core.Error, :handle_error, fn context, _error -> context.state end)
+      expect(Core.Error, :handle_error, &discard_error/2)
 
-      assert ^new_state =
+      assert {:discard, _reason, ^new_state} =
                DataHandler.handle_data(
                  state,
                  interface,
                  path,
                  payload,
-                 message_id,
                  timestamp
                )
     end
   end
 
+  defp discard_error(context, error), do: {:discard, error.error, context.state}
+
   defp gen_non_empty_value_context(state, interfaces) do
     gen all interface <- member_of(interfaces),
-            message_id <- repeatedly(&gen_message_id/0),
             update <- valid_mapping_update_for(interface) |> filter(&(&1.value != %{})),
             timestamp <- repeatedly(fn -> DateTime.utc_now(:millisecond) end) do
       payload =
@@ -458,7 +438,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface.name,
-        message_id: message_id,
         path: update.path,
         timestamp: timestamp,
         payload: payload
@@ -468,7 +447,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
 
   defp gen_context(state, interfaces) do
     gen all interface <- member_of(interfaces),
-            message_id <- repeatedly(&gen_message_id/0),
             update <- valid_mapping_update_for(interface),
             timestamp <- repeatedly(fn -> DateTime.utc_now(:millisecond) end) do
       payload =
@@ -481,15 +459,12 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandlerErrorTest do
       %{
         state: state,
         interface: interface.name,
-        message_id: message_id,
         path: update.path,
         timestamp: timestamp,
         payload: payload
       }
     end
   end
-
-  defp gen_message_id, do: :erlang.unique_integer([:monotonic]) |> Integer.to_string()
 
   defp valid_value?(%DateTime{} = payload_value, %DateTime{} = value),
     do: DateTime.compare(payload_value, value) == :eq

@@ -25,12 +25,8 @@ defmodule Astarte.DataUpdater.DeletionScheduler do
   """
   use GenServer
 
-  alias Astarte.Core.CQLUtils
   alias Astarte.Core.Device
   alias Astarte.Core.Device
-  alias Astarte.DataUpdaterPlant.Config
-  alias Astarte.DataUpdaterPlant.Config
-  alias Astarte.DataUpdaterPlant.DataUpdater
   alias Astarte.DataUpdaterPlant.DataUpdater.Queries
   alias Mississippi.Consumer.DataUpdater
 

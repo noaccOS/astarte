@@ -36,7 +36,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.InternalHandler do
     :ok = Queries.ack_end_device_deletion(state.realm, state.device_id)
     _ = Logger.info("End device deletion acked.", tag: "device_delete_ack")
 
-    {:stop, :ack_end_device_deletion, state}
+    {:stop, :ack_end_device_deletion, :ack, state}
   end
 
   def handle_internal(state, path, payload, timestamp) do
@@ -56,6 +56,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.InternalHandler do
       error_name: "unexpected_internal_message"
     }
 
-    Core.Error.handle_error_mississippi(context, error)
+    Core.Error.handle_error(context, error)
   end
 end

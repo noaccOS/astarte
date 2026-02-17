@@ -123,12 +123,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.ControlHandler do
         error = %{
           message: "Invalid purge_properties payload",
           logger_metadata: [tag: "purge_properties_error"],
+          error_name: "purge_properties_error",
           error: :purge_properties_error
         }
 
         opts = [execute_error_triggers: false, update_stats: false]
 
-        Core.Error.handle_error_mississippi(context, error, opts)
+        Core.Error.handle_error(context, error, opts)
     end
   end
 
@@ -167,7 +168,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.ControlHandler do
       telemetry_name: [:astarte, :data_updater_plant, :data_updater, :discarded_control_message]
     }
 
-    Core.Error.handle_error_mississippi(context, error)
+    Core.Error.handle_error(context, error)
   end
 
   defp decode_payload(%State{capabilities: capabilities} = _state, payload) do
@@ -364,7 +365,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.ControlHandler do
 
     opts = [update_stats: false]
 
-    Core.Error.handle_error_mississippi(context, error, opts)
+    Core.Error.handle_error(context, error, opts)
   end
 
   defp sending_properties_error(state, timestamp) do
@@ -378,7 +379,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.ControlHandler do
     }
 
     opts = [update_stats: false]
-    Core.Error.handle_error_mississippi(context, error, opts)
+    Core.Error.handle_error(context, error, opts)
   end
 
   defp generic_error(state, timestamp, reason) do
@@ -397,6 +398,6 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.ControlHandler do
 
     opts = [update_stats: false]
 
-    Core.Error.handle_error_mississippi(context, error, opts)
+    Core.Error.handle_error(context, error, opts)
   end
 end

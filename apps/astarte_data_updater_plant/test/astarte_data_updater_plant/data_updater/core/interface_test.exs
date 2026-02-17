@@ -27,28 +27,20 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.InterfaceTest do
   alias Astarte.DataAccess.Realms.Interface, as: InterfaceData
   alias Astarte.DataAccess.Realms.Realm
   alias Astarte.DataAccess.Repo
-  alias Astarte.DataUpdaterPlant.DataUpdater
   alias Astarte.DataUpdaterPlant.DataUpdater.Core
   alias Astarte.Helpers
 
   use Astarte.Cases.Data, async: true
   use Astarte.Cases.Device
+  use Astarte.Cases.DataUpdater
   use ExUnitProperties
 
   import Ecto.Query
   import Astarte.InterfaceUpdateGenerators
-  import Astarte.Helpers.DataUpdater
 
   @interface_lifespan_decimicroseconds 60 * 10 * 1000 * 10_000
 
   setup_all :populate_interfaces
-
-  setup_all %{realm_name: realm_name, device: device} do
-    setup_data_updater(realm_name, device.encoded_id)
-    state = DataUpdater.dump_state(realm_name, device.encoded_id)
-
-    %{state: state}
-  end
 
   describe "maybe_handle_cache_miss/3" do
     test "updates device state on miss", context do

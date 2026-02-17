@@ -57,7 +57,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.IntrospectionHandler do
           telemetry_name: [:astarte, :data_updater_plant, :data_updater, :discarded_introspection]
         }
 
-        Core.Error.handle_error_mississippi(context, error)
+        Core.Error.handle_error(context, error)
     end
   end
 end

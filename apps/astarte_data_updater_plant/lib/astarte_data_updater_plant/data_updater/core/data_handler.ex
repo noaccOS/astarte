@@ -62,7 +62,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
          {:ok, interface_descriptor, context} <- maybe_handle_cache_miss(context),
          :ok <- can_write_on_interface?(context, interface_descriptor.ownership),
          {:ok, mapping} <- resolve_path(context, interface_descriptor),
-         {value, value_timestamp, _metadata} <- decode_bson_payload(context),
+         {:ok, {value, value_timestamp, _metadata}} <- decode_bson_payload(context),
          :ok <- validate_value_type(context, interface_descriptor, mapping, value) do
       maybe_explicit_value_timestamp =
         if mapping.explicit_timestamp,
@@ -144,7 +144,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
     }
 
     # with `unset_not_allowed` we do not want to update the stats
-    Core.Error.handle_error_mississippi(context, error, update_stats: false)
+    Core.Error.handle_error(context, error, update_stats: false)
   end
 
   defp handle_result(:ok, context) do
@@ -221,7 +221,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
       error: :unset_on_datastream
     }
 
-    Core.Error.handle_error_mississippi(context, error,
+    Core.Error.handle_error(context, error,
       ask_clean_session: false,
       update_stats: false
     )
@@ -256,7 +256,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
           %{realm: state.realm, interface: interface, result: "failed"}
         )
 
-        Core.Error.handle_error_mississippi(context, error)
+        Core.Error.handle_error(context, error)
 
       {:ok, descriptor, state} ->
         # Track successful interface cache hit or successful load
@@ -287,7 +287,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
           error: :mapping_not_found
         }
 
-        Core.Error.handle_error_mississippi(context, error)
+        Core.Error.handle_error(context, error)
 
       {:guessed, _guessed_endpoints} ->
         error = %{
@@ -297,7 +297,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
           error: :ambiguous_path
         }
 
-        Core.Error.handle_error_mississippi(context, error)
+        Core.Error.handle_error(context, error)
 
       ok ->
         ok
@@ -317,7 +317,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
         error: :undecodable_bson_payload
       }
 
-      Core.Error.handle_error_mississippi(context, error)
+      Core.Error.handle_error(context, error)
     end
   end
 
@@ -352,6 +352,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
       %{
         message: "Received invalid interface: #{inspect(interface)}.",
         logger_metadata: [tag: "invalid_interface"],
+        error: :invalid_interface,
         error_name: "invalid_interface"
       }
 
@@ -367,6 +368,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
     error = %{
       message: "Received invalid path: #{inspect(path)}.",
       logger_metadata: [tag: "invalid_path"],
+      error: :invalid_path,
       error_name: "invalid_path"
     }
 
@@ -393,7 +395,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
       error: :cannot_write_on_server_owned_interface
     }
 
-    Core.Error.handle_error_mississippi(context, error)
+    Core.Error.handle_error(context, error)
   end
 
   defp validate_value_type(context, interface_descriptor, mapping, value) do
@@ -419,7 +421,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
           error: :unexpected_value_type
         }
 
-        Core.Error.handle_error_mississippi(context, error)
+        Core.Error.handle_error(context, error)
 
       {:error, :unexpected_object_key} ->
         error = %{
@@ -430,7 +432,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
           error: :unexpected_value_type
         }
 
-        Core.Error.handle_error_mississippi(context, error)
+        Core.Error.handle_error(context, error)
 
       {:error, :value_size_exceeded} ->
         error = %{
@@ -441,7 +443,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.DataHandler do
           error: :value_size_exceeded
         }
 
-        Core.Error.handle_error_mississippi(context, error)
+        Core.Error.handle_error(context, error)
 
       :ok ->
         :ok

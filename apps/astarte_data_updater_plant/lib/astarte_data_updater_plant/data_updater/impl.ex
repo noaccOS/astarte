@@ -29,11 +29,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   alias Astarte.DataUpdaterPlant.DataUpdater.Queries
   alias Astarte.DataUpdaterPlant.DataUpdater.State
   alias Astarte.DataUpdaterPlant.TimeBasedActions
-  alias Astarte.DataUpdaterPlant.TriggerPolicy.Queries, as: PolicyQueries
   alias Astarte.DataUpdaterPlant.TriggersHandler
-  alias Astarte.DataUpdaterPlant.ValueMatchOperators
-  alias Astarte.RPC.Protocol.DataUpdaterPlant.DeleteVolatileTrigger
-  alias Astarte.RPC.Protocol.DataUpdaterPlant.InstallVolatileTrigger
   require Logger
 
   @msg_type_header "x_astarte_msg_type"
@@ -63,8 +59,11 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     # TODO this could be a bang!
     {:ok, ttl} = Queries.get_datastream_maximum_storage_retention(state.realm)
 
-    Map.merge(state, device_status)
-    |> Map.put(:datastream_maximum_storage_retention, ttl)
+    state =
+      Map.merge(state, device_status)
+      |> Map.put(:datastream_maximum_storage_retention, ttl)
+
+    {:ok, state}
   end
 
   @impl true
@@ -91,6 +90,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
 
       "data" ->
         %{@interface_header => interface, @path_header => path} = headers
+
         handle_data(state, interface, path, payload, timestamp)
 
       "control" ->
@@ -109,11 +109,17 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   @impl true
   def handle_signal(signal, state) do
     case signal do
-      {:handle_install_volatile_trigger, parent_id, trigger_id, simple_trigger, trigger_target} ->
-        handle_install_volatile_trigger(state, parent_id, trigger_id, simple_trigger, trigger_target)
+      {:install_volatile_trigger, parent_id, trigger_id, simple_trigger, trigger_target} ->
+        install_volatile_trigger(
+          state,
+          parent_id,
+          trigger_id,
+          simple_trigger,
+          trigger_target
+        )
 
-      {:handle_delete_volatile_trigger, trigger_id} ->
-        handle_delete_volatile_trigger(state, trigger_id)
+      {:delete_volatile_trigger, trigger_id} ->
+        delete_volatile_trigger(state, trigger_id)
 
       :dump_state ->
         {state, state}
@@ -127,9 +133,9 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   end
 
   @impl true
-  def terminate(_, state) do
+  def terminate(_, _state) do
     # All is ok for now
-    {:ok, state}
+    :ok
   end
 
   def handle_deactivation(_state) do
@@ -188,12 +194,18 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     {:ack, :ok, new_state}
   end
 
-  defp handle_install_volatile_trigger(%State{discard_messages: true} = state, _) do
+  defp install_volatile_trigger(%State{discard_messages: true} = state, _, _, _, _) do
     # Don't care
     {:ok, state}
   end
 
-  defp handle_install_volatile_trigger(state, parent_id, trigger_id, simple_trigger, trigger_target) do
+  defp install_volatile_trigger(
+         state,
+         parent_id,
+         trigger_id,
+         simple_trigger,
+         trigger_target
+       ) do
     Core.Trigger.handle_install_volatile_trigger(
       state,
       parent_id,
@@ -203,13 +215,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     )
   end
 
-  def handle_delete_volatile_trigger(%State{discard_messages: true} = state, _) do
+  def delete_volatile_trigger(%State{discard_messages: true} = state, _) do
     # Don't care
     {:ok, state}
   end
 
-  def handle_delete_volatile_trigger(state, trigger_id) do
-    state = Core.Trigger.handle_delete_volatile_trigger(state, trigger_id)
+  def delete_volatile_trigger(state, trigger_id) do
+    :ok = Core.Trigger.handle_delete_volatile_trigger(state, trigger_id)
     {:ok, state}
   end
 
@@ -230,7 +242,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   end
 
   @impl true
-  def handle_continue({:mississippi_error, context, error, opts}, _state) do
+  def handle_continue({:handle_error, context, error, opts}, _state) do
     new_state = Core.Error.continue_error(context, error, opts)
     {:ok, new_state}
   end
