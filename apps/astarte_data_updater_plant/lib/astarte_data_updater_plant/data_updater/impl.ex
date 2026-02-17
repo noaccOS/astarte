@@ -100,6 +100,9 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
         %{@control_path_header => control_path} = headers
         handle_control(state, control_path, payload, timestamp)
 
+      "capabilities" ->
+        handle_capabilities(state, payload, timestamp)
+
       _ ->
         # Ack all messages for now
         {:ack, :ok, state}
@@ -305,7 +308,7 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     |> Core.DataHandler.handle_data(interface, path, payload, timestamp)
   end
 
-  defdelegate handle_capabilities(state, capabilities, message_id, timestamp),
+  defdelegate handle_capabilities(state, capabilities, timestamp),
     to: Core.CapabilitiesHandler
 
   defdelegate handle_control(state, path, payload, timestamp), to: Core.ControlHandler
