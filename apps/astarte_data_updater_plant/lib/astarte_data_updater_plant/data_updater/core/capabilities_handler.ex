@@ -57,11 +57,11 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.CapabilitiesHandler do
         {:ack, :ok, state}
 
       {:error, error} ->
-        handle_error(state, error, payload, message_id, timestamp)
+        handle_error(state, error, payload, timestamp)
     end
   end
 
-  defp handle_error(state, error, payload, message_id, timestamp) do
+  defp handle_error(state, error, payload, timestamp) do
     error = %{
       message:
         "Unexpected error while processing payload #{inspect(Base.encode64(payload))}: #{error}",

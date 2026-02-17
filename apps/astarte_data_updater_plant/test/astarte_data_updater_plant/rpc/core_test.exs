@@ -44,7 +44,7 @@ defmodule Astarte.DataUpdaterPlant.RPC.CoreTest do
     %{data_updater: dup}
   end
 
-  property "install_volatile_trigger/1 calls the `data_updater` server", context do
+  property "install_volatile_trigger/1 calls the `data_updater`", context do
     %{realm_name: realm_name, device: device, data_updater: data_updater} = context
 
     check all volatile_trigger <- volatile_trigger(realm_name, device.encoded_id) do

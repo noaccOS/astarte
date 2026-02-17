@@ -110,7 +110,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   def handle_signal(signal, state) do
     case signal do
       {:handle_install_volatile_trigger, parent_id, trigger_id, simple_trigger, trigger_target} ->
-        handle_install_volatile_trigger(state, parent_id, trigger_id, simple_trigger, trigger_target)
+        handle_install_volatile_trigger(
+          state,
+          parent_id,
+          trigger_id,
+          simple_trigger,
+          trigger_target
+        )
 
       {:handle_delete_volatile_trigger, trigger_id} ->
         handle_delete_volatile_trigger(state, trigger_id)
@@ -193,7 +199,13 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
     {:ok, state}
   end
 
-  defp handle_install_volatile_trigger(state, parent_id, trigger_id, simple_trigger, trigger_target) do
+  defp handle_install_volatile_trigger(
+         state,
+         parent_id,
+         trigger_id,
+         simple_trigger,
+         trigger_target
+       ) do
     Core.Trigger.handle_install_volatile_trigger(
       state,
       parent_id,
