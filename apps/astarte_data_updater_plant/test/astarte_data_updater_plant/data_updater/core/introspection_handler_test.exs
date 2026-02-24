@@ -21,16 +21,16 @@
 defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.IntrospectionHandlerTest do
   use Astarte.Cases.Data, async: true
   use Astarte.Cases.Device
-  use Astarte.Cases.DataUpdater
-  use Mimic
-  use ExUnitProperties
 
-  import StreamData
+  use Astarte.Cases.DataUpdater
+
+  use ExUnitProperties
+  use Mimic
 
   alias Astarte.Common.Generators.Timestamp
-  alias Astarte.DataUpdaterPlant.DataUpdater.Impl
   alias Astarte.DataUpdaterPlant.DataUpdater.Core
   alias Astarte.DataUpdaterPlant.DataUpdater.Core.IntrospectionHandler
+  alias Astarte.DataUpdaterPlant.DataUpdater.Impl
   alias Astarte.DataUpdaterPlant.DataUpdater.PayloadsDecoder
 
   setup do

@@ -20,8 +20,8 @@
 
 defmodule Astarte.DataUpdaterPlant.RPC.CoreTest do
   @moduledoc false
-  alias Astarte.DataUpdaterPlant.RPC.Server.Core
   alias Astarte.DataUpdaterPlant.DataUpdater.Impl
+  alias Astarte.DataUpdaterPlant.RPC.Server.Core
 
   use Astarte.Cases.Data, async: true
   use Astarte.Cases.Trigger

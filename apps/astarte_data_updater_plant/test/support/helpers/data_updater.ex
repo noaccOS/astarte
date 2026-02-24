@@ -58,7 +58,7 @@ defmodule Astarte.Helpers.DataUpdater do
     :ok
   end
 
-  def mississippi_producer_opts!() do
+  def mississippi_producer_opts! do
     [
       amqp_producer_options: [host: Config.amqp_consumer_host!()],
       mississippi_config: [

@@ -206,7 +206,8 @@ defmodule Astarte.DataUpdaterPlant.DeviceDeleteTest do
     assert [true] = dup_end_ack_result
 
     # Finally, check that the related DataUpdater process exists no more
-    assert [] = Horde.Registry.lookup(Mississippi.Consumer.DataUpdater.Registry, {realm, device_id})
+    assert [] =
+             Horde.Registry.lookup(Mississippi.Consumer.DataUpdater.Registry, {realm, device_id})
   end
 
   defp make_timestamp(timestamp_string) do

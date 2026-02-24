@@ -28,9 +28,9 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.ControlHandlerTest do
 
   import ExUnit.CaptureLog
 
-  alias Astarte.DataUpdaterPlant.DataUpdater.Impl
   alias Astarte.DataUpdaterPlant.DataUpdater.Core
   alias Astarte.DataUpdaterPlant.DataUpdater.Core.ControlHandler
+  alias Astarte.DataUpdaterPlant.DataUpdater.Impl
   alias Astarte.DataUpdaterPlant.DataUpdater.PayloadsDecoder
   alias Astarte.DataUpdaterPlant.RPC.VMQPlugin.ClientMock
 

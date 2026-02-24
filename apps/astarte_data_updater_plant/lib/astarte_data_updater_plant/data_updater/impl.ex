@@ -67,43 +67,52 @@ defmodule Astarte.DataUpdaterPlant.DataUpdater.Impl do
   end
 
   @impl true
-  def handle_message(payload, headers, _message_id, timestamp, state) do
+  def handle_message(payload, headers, message_id, timestamp, state) do
     %{@msg_type_header => message_type} = headers
 
-    case message_type do
-      "connection" ->
-        %{@ip_header => ip_address} = headers
-        handle_connection(state, ip_address, timestamp)
+    do_handle_message(message_type, payload, headers, message_id, timestamp, state)
+  end
 
-      "disconnection" ->
-        handle_disconnection(state, timestamp)
+  defp do_handle_message("connection", _payload, headers, _message_id, timestamp, state) do
+    %{@ip_header => ip_address} = headers
+    handle_connection(state, ip_address, timestamp)
+  end
 
-      "heartbeat" ->
-        Core.HeartbeatHandler.handle_heartbeat(state, timestamp)
+  defp do_handle_message("disconnection", _payload, _headers, _message_id, timestamp, state) do
+    handle_disconnection(state, timestamp)
+  end
 
-      "internal" ->
-        %{@internal_path_header => internal_path} = headers
-        handle_internal(state, internal_path, payload, timestamp)
+  defp do_handle_message("heartbeat", _payload, _headers, _message_id, timestamp, state) do
+    Core.HeartbeatHandler.handle_heartbeat(state, timestamp)
+  end
 
-      "introspection" ->
-        handle_introspection(state, payload, timestamp)
+  defp do_handle_message("internal", payload, headers, _message_id, timestamp, state) do
+    %{@internal_path_header => internal_path} = headers
+    handle_internal(state, internal_path, payload, timestamp)
+  end
 
-      "data" ->
-        %{@interface_header => interface, @path_header => path} = headers
+  defp do_handle_message("introspection", payload, _headers, _message_id, timestamp, state) do
+    handle_introspection(state, payload, timestamp)
+  end
 
-        handle_data(state, interface, path, payload, timestamp)
+  defp do_handle_message("data", payload, headers, _message_id, timestamp, state) do
+    %{@interface_header => interface, @path_header => path} = headers
 
-      "control" ->
-        %{@control_path_header => control_path} = headers
-        handle_control(state, control_path, payload, timestamp)
+    handle_data(state, interface, path, payload, timestamp)
+  end
 
-      "capabilities" ->
-        handle_capabilities(state, payload, timestamp)
+  defp do_handle_message("control", payload, headers, _message_id, timestamp, state) do
+    %{@control_path_header => control_path} = headers
+    handle_control(state, control_path, payload, timestamp)
+  end
 
-      _ ->
-        # Ack all messages for now
-        {:ack, :ok, state}
-    end
+  defp do_handle_message("capabilities", payload, _headers, _message_id, timestamp, state) do
+    handle_capabilities(state, payload, timestamp)
+  end
+
+  defp do_handle_message(_, _payload, _headers, _message_id, _timestamp, state) do
+    # Ack all messages for now
+    {:ack, :ok, state}
   end
 
   @impl true

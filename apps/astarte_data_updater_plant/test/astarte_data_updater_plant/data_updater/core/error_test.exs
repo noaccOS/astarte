@@ -21,14 +21,16 @@
 defmodule Astarte.DataUpdaterPlant.DataUpdater.Core.ErrorTest do
   use Astarte.Cases.Data, async: true
   use Astarte.Cases.Device
+
   use Astarte.Cases.DataUpdater
-  use ExUnitProperties
+
   use Astarte.Generators.Utilities.ParamsGen
+  use ExUnitProperties
   use Mimic
 
-  alias Astarte.DataUpdaterPlant.DataUpdater.Impl
   alias Astarte.DataUpdaterPlant.DataUpdater.Core
   alias Astarte.DataUpdaterPlant.DataUpdater.Core.Error
+  alias Astarte.DataUpdaterPlant.DataUpdater.Impl
 
   import Astarte.InterfaceUpdateGenerators
 
