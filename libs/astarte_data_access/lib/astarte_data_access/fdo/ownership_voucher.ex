@@ -21,14 +21,24 @@ defmodule Astarte.DataAccess.FDO.OwnershipVoucher do
   Ecto schema for persisting ownership voucher binary data to the database.
   """
   use TypedEctoSchema
+
   import Ecto.Changeset
+
+  alias Astarte.DataAccess.FDO.CBOR.Encoded, as: CBOREncoded
   alias Astarte.DataAccess.FDO.OwnershipVoucher
+  alias Astarte.FDO.Core.OwnershipVoucher.RendezvousInfo
+  alias Astarte.FDO.Core.PublicKey
 
   @primary_key false
   typed_schema "ownership_vouchers" do
-    field :private_key, :binary
-    field :voucher_data, :binary
     field :guid, Astarte.DataAccess.UUID, primary_key: true
+    field :voucher_data, :binary
+    field :output_voucher, :binary
+    field :user_id, :binary
+    field :key_name, :string
+    field :replacement_guid, :binary
+    field :replacement_rv_info, CBOREncoded, using: RendezvousInfo
+    field :replacement_pub_key, CBOREncoded, using: PublicKey
   end
 
   @doc false
