@@ -58,13 +58,13 @@ defmodule Astarte.DataAccess.FDO.Queries do
     Repo.fetch(query, guid, consistency: consistency)
   end
 
-  def get_owner_private_key(realm_name, guid) do
+  def get_owner_key_name(realm_name, guid) do
     keyspace_name = Realm.keyspace_name(realm_name)
 
     query =
       from o in OwnershipVoucher,
         prefix: ^keyspace_name,
-        select: o.private_key
+        select: o.key_name
 
     consistency = Consistency.domain_model(:read)
 

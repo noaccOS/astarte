@@ -43,6 +43,7 @@ defmodule Astarte.FDO.OwnerOnboarding do
   alias Astarte.FDO.OwnerOnboarding.DeviceAttestation
   alias Astarte.FDO.OwnerOnboarding.KeyExchangeStrategy
   alias Astarte.FDO.OwnershipVoucher
+  alias Astarte.Secrets
 
   require Logger
 
