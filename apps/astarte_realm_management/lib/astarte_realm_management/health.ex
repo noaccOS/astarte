@@ -1,7 +1,7 @@
 #
 # This file is part of Astarte.
 #
-# Copyright 2017 - 2025 SECO Mind Srl
+# Copyright 2026 SECO Mind Srl
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,24 @@
 # limitations under the License.
 #
 
-Mimic.copy(AMQP.Basic)
-Mimic.copy(Astarte.AppEngine.API.Health)
-Mimic.copy(Astarte.DataAccess.Config)
-Mimic.copy(ExRabbitPool)
-Mimic.copy(ExRabbitPool.RabbitMQ)
-Mimic.copy(Horde.Registry)
-Mimic.copy(HTTPoison)
+defmodule Astarte.RealmManagement.Health do
+  alias Astarte.DataAccess.Health, as: DatabaseHealth
 
-ExUnit.start(capture_log: true)
+  @doc """
+  Gets the backend health, and raises if it's not healthy.
+  """
+  def rpc_healthcheck do
+    case get_health() do
+      :ready -> :ok
+      :degraded -> :ok
+      other -> raise RuntimeError, to_string(other)
+    end
+  end
+
+  @doc """
+  Gets the backend health.
+  """
+  def get_health do
+    DatabaseHealth.get_health()
+  end
+end

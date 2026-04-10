@@ -21,10 +21,20 @@ defmodule Astarte.Pairing.Health do
   Performs health checks of the Pairing service
   """
 
-  alias Astarte.DataAccess.Health.Health, as: DatabaseHealth
+  alias Astarte.DataAccess.Health, as: DatabaseHealth
   alias Astarte.Pairing.Config
 
   @type health :: :ready | :bad
+
+  @doc """
+  Gets the backend health, and raises if it's not healthy.
+  """
+  def rpc_healthcheck do
+    case get_health() do
+      :ready -> :ok
+      other -> raise RuntimeError, to_string(other)
+    end
+  end
 
   @doc """
   Gets the backend health.

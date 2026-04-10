@@ -21,9 +21,19 @@ defmodule Astarte.AppEngine.API.Health do
   Health check module for Data Updater Plant service
   """
 
-  alias Astarte.DataAccess.Health.Health, as: DatabaseHealth
+  alias Astarte.DataAccess.Health, as: DatabaseHealth
 
   require Logger
+
+  @doc """
+  Gets the backend health, and raises if it's not healthy.
+  """
+  def rpc_healthcheck do
+    case get_health() do
+      :ready -> :ok
+      other -> raise RuntimeError, to_string(other)
+    end
+  end
 
   @doc """
   Gets the backend health.
