@@ -436,7 +436,9 @@ defmodule Astarte.PairingWeb.FDOOnboardingController do
          encoded_device_id <- Device.encode_device_id(device_id),
          {:ok, session} <- Session.add_device_id(conn.assigns.to2_session, realm_name, device_id),
          {:ok, credentials_secret} <-
-           Engine.register_device(realm_name, encoded_device_id, unconfirmed: true),
+           Engine.register_device(realm_name, encoded_device_id,
+             registration_status: :unconfirmed_fdo
+           ),
          {:ok, response} <-
            ServiceInfo.build_owner_service_info(
              realm_name,

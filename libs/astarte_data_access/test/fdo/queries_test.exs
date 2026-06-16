@@ -222,22 +222,25 @@ defmodule Astarte.DataAccess.FDO.QueriesTest do
     end
   end
 
-  describe "remove_device_ttl/2" do
+  describe "put_registration_status/3" do
     setup do
       Xandra.Cluster.run(:astarte_data_access_xandra, fn conn ->
         DatabaseTestHelper.seed_data(conn)
       end)
     end
 
-    test "re-inserts an existing device without TTL" do
+    test "updates registration status" do
       {:ok, device_id} = CoreDevice.decode_device_id("f0VMRgIBAQAAAAAAAAAAAA")
 
-      assert {:ok, _device} = Queries.remove_device_ttl(@realm, device_id)
+      assert {:ok, _device} =
+               Queries.put_registration_status(@realm, device_id, :confirmed_legacy)
     end
 
     test "returns error for a missing device" do
       missing_id = :crypto.strong_rand_bytes(16)
-      assert {:error, :device_not_found} = Queries.remove_device_ttl(@realm, missing_id)
+
+      assert {:error, :device_not_found} =
+               Queries.put_registration_status(@realm, missing_id, :confirmed_legacy)
     end
   end
 

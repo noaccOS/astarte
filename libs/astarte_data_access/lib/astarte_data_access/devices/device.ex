@@ -35,6 +35,9 @@ defmodule Astarte.DataAccess.Devices.Device do
     field :connected, :boolean
     field :credentials_secret, :string
 
+    field :registration_status, Ecto.Enum,
+      values: [confirmed_legacy: 0, unconfirmed_fdo: 1, confirmed_fdo: 2]
+
     field :exchanged_bytes_by_interface, Exandra.Map,
       key: Exandra.Tuple,
       types: [:string, :integer],

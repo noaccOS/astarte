@@ -52,6 +52,7 @@ defmodule Astarte.DatabaseTestdata do
     credentials_secret ascii,
     exchanged_bytes_by_interface map<frozen<tuple<ascii, int>>, bigint>,
     exchanged_msgs_by_interface map<frozen<tuple<ascii, int>>, bigint>,
+    registration_status int,
     first_credentials_request timestamp,
     first_registration timestamp,
     groups map<text, timeuuid>,

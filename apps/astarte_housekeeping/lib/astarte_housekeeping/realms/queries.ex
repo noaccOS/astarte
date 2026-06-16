@@ -823,6 +823,7 @@ defmodule Astarte.Housekeeping.Realms.Queries do
       introspection_minor map<ascii, int>,
       old_introspection map<frozen<tuple<ascii, int>>, int>,
       protocol_revision int,
+      registration_status int,
       first_registration timestamp,
       credentials_secret ascii,
       inhibit_credentials_request boolean,

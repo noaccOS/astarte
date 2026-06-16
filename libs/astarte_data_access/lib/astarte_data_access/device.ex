@@ -72,23 +72,20 @@ defmodule Astarte.DataAccess.Device do
           opts
         )
 
-      {:ok, device} ->
-        if is_nil(device.first_credentials_request) do
-          Logger.info("register request for existing unconfirmed device: #{inspect(extended_id)}")
+      {:ok, device} when is_nil(device.first_credentials_request) ->
+        Logger.info("register request for existing unconfirmed device: #{inspect(extended_id)}")
 
-          do_register_unconfirmed_device(
-            realm_name,
-            device,
-            credentials_secret,
-            opts
-          )
-        else
-          Logger.warning(
-            "register request for existing confirmed device: #{inspect(extended_id)}"
-          )
+        do_register_unconfirmed_device(
+          realm_name,
+          device,
+          credentials_secret,
+          opts
+        )
 
-          {:error, :device_already_registered}
-        end
+      {:ok, _device} ->
+        Logger.warning("register request for existing confirmed device: #{inspect(extended_id)}")
+
+        {:error, :device_already_registered}
 
       {:error, reason} ->
         {:error, reason}
@@ -111,25 +108,22 @@ defmodule Astarte.DataAccess.Device do
 
     consistency = Consistency.device_info(:write)
 
-    repo_opts =
-      if Keyword.get(opts, :unconfirmed, false) do
-        [prefix: keyspace_name, consistency: consistency, ttl: 7200]
-      else
-        [prefix: keyspace_name, consistency: consistency]
-      end
+    registration_status = Keyword.get(opts, :registration_status, :confirmed_legacy)
 
-    %Device{}
-    |> Ecto.Changeset.change(%{
+    repo_opts = [prefix: keyspace_name, consistency: consistency]
+
+    %Device{
       device_id: device_id,
       first_registration: registration_timestamp,
       credentials_secret: credentials_secret,
       inhibit_credentials_request: false,
       protocol_revision: 0,
+      registration_status: registration_status,
       total_received_bytes: 0,
       total_received_msgs: 0,
       introspection: introspection,
       introspection_minor: introspection_minor
-    })
+    }
     |> Repo.insert(repo_opts)
   end
 
@@ -148,22 +142,20 @@ defmodule Astarte.DataAccess.Device do
 
     consistency = Consistency.device_info(:write)
 
-    repo_opts =
-      if Keyword.get(opts, :unconfirmed, false) do
-        [prefix: keyspace_name, consistency: consistency, ttl: 7200]
-      else
-        [prefix: keyspace_name, consistency: consistency]
-      end
+    registration_status = Keyword.get(opts, :registration_status, :confirmed_legacy)
+
+    repo_opts = [prefix: keyspace_name, consistency: consistency]
 
     device
     |> Ecto.Changeset.change(%{
       credentials_secret: credentials_secret,
+      registration_status: registration_status,
       inhibit_credentials_request: false,
       protocol_revision: 0,
       introspection: introspection,
       introspection_minor: introspection_minor
     })
-    |> Repo.insert(repo_opts)
+    |> Repo.update(repo_opts)
   end
 
   defp build_initial_introspection_maps(initial_introspection) do

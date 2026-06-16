@@ -24,25 +24,33 @@ defmodule Astarte.DataAccess.FDO.Queries do
   import Ecto.Query
 
   alias Astarte.DataAccess.Consistency
-  alias Astarte.DataAccess.Device
+  alias Astarte.DataAccess.Devices.Device
   alias Astarte.DataAccess.FDO.OwnershipVoucher
   alias Astarte.DataAccess.FDO.TO2Session
   alias Astarte.DataAccess.Realms.Realm
   alias Astarte.DataAccess.Repo
+  alias Ecto.Changeset
 
   require Logger
 
-  def remove_device_ttl(realm_name, device_id) do
+  def put_registration_status(realm_name, device_id, status) do
     keyspace_name = Realm.keyspace_name(realm_name)
     consistency = Consistency.device_info(:write)
 
-    with {:ok, device} <- Device.fetch(realm_name, device_id) do
-      device
-      |> Repo.insert(
-        prefix: keyspace_name,
-        consistency: consistency
-      )
-    end
+    opts = [
+      prefix: keyspace_name,
+      consistency: consistency,
+      allow_insert: false,
+      allow_stale: true,
+      error: :device_not_found
+    ]
+
+    %Device{device_id: device_id}
+    |> Changeset.change(%{registration_status: status})
+    |> Repo.update(opts)
+
+    # Return consistent results: update always returns ok even if nothing was updated
+    Repo.fetch(Device, device_id, opts)
   end
 
   def get_ownership_voucher(realm_name, guid) do
