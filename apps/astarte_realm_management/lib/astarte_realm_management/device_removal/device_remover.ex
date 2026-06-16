@@ -46,4 +46,8 @@ defmodule Astarte.RealmManagement.DeviceRemoval.DeviceRemover do
     _ = Logger.info("Successfully removed device #{encoded_device_id}", tag: "device_delete_ok")
     :ok
   end
+
+  def remove_unconfirmed_devices do
+    realms = Queries.retrieve_realms!()
+  end
 end

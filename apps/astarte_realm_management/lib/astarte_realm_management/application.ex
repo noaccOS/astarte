@@ -26,6 +26,7 @@ defmodule Astarte.RealmManagement.Application do
 
   alias Astarte.DataAccess.Config, as: DataAccessConfig
   alias Astarte.RealmManagement.Config
+  alias Astarte.RealmManagement.DeviceRemoval.DeviceRemover
 
   require Logger
 
@@ -46,6 +47,11 @@ defmodule Astarte.RealmManagement.Application do
 
     trigger_types = [:DEVICE_DELETION_STARTED, :DEVICE_DELETION_FINISHED]
 
+    unconfirmed_device_remover = %{
+      id: "unconfirmed-device-remover",
+      start: {SchedEx, :run_every, [DeviceRemove, :remove_unconfirmed_devices, [], ""]}
+    }
+
     children =
       [
         Astarte.RealmManagement.RPC.Server,
@@ -55,6 +61,7 @@ defmodule Astarte.RealmManagement.Application do
         {Task.Supervisor, name: Astarte.RealmManagement.DeviceRemoverSupervisor},
         {Horde.Registry, [keys: :unique, name: Registry.DataUpdaterRPC, members: :auto]},
         Astarte.RealmManagement.DeviceRemoval.Scheduler,
+        unconfirmed_device_remover,
         {Astarte.Events.AMQPEvents.Supervisor, []},
         {Astarte.Events.AMQPTriggers.Supervisor, []},
         {Astarte.Events.Triggers.Supervisor, []}
