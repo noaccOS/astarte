@@ -1,31 +1,22 @@
-defmodule Astarte.Secrets do
+defmodule Astarte.Secrets.Vault do
   @moduledoc """
   Functionality to interface with OpenBao APIs.
   """
-  alias Astarte.DataAccess.FDO.Queries
-  alias Astarte.Secrets.Client
-  alias Astarte.Secrets.Core
-  alias Astarte.Secrets.Key
-  alias COSE.Keys.ECC
-  alias COSE.Keys.RSA
+
+  alias Astarte.Secrets.Vault.Key
+  alias Astarte.Secrets.Vault.Client
+  alias Astarte.Secrets.Vault.Core
   alias HTTPoison.Response
 
   require Logger
 
-  @spec get_key(String.t()) :: {:ok, map()} | :error
+  @spec get_key(String.t()) :: {:ok, map()} | {:error, term()}
   def get_key(key_name, opts \\ []) do
     namespace = Keyword.fetch!(opts, :namespace)
 
     with {:ok, resp} <- Core.get_key(key_name, namespace),
          {:ok, data} <- Core.parse_json_data(resp) do
       Key.parse(key_name, namespace, data)
-    end
-  end
-
-  def get_key_for_guid(realm_name, user_id \\ nil, guid) do
-    with {:ok, params} <- Queries.get_owner_key_params(realm_name, guid),
-         {:ok, namespace} <- create_namespace(realm_name, user_id, params.algorithm) do
-      get_key(params.name, namespace: namespace)
     end
   end
 
@@ -36,15 +27,6 @@ defmodule Astarte.Secrets do
     Core.list_keys(namespace)
   end
 
-  def create_namespace(realm_name, user_id \\ nil, key_algorithm) do
-    with {:ok, algorithm} <- Core.key_type_to_string(key_algorithm),
-         namespace_tokens = Core.namespace_tokens(realm_name, user_id, algorithm),
-         {:ok, namespace} <- Core.create_nested_namespace(namespace_tokens),
-         :ok <- Core.mount_transit_engine(namespace) do
-      {:ok, namespace}
-    end
-  end
-
   def list_namespaces do
     with {:ok, namespaces} <- Core.list_namespaces() do
       {:ok, Enum.to_list(namespaces)}
@@ -52,13 +34,15 @@ defmodule Astarte.Secrets do
   end
 
   @spec create_keypair(String.t(), Core.key_algorithm(), list()) ::
-          {:ok, map()} | {:error, Jason.DecodeError.t()} | :error
+          {:ok, Key.t()} | {:error, Jason.DecodeError.t()} | :error
   def create_keypair(key_name, key_type, options \\ []) do
     namespace = Keyword.fetch!(options, :namespace)
     allow_key_export_and_backup = Keyword.get(options, :allow_key_export_and_backup, false)
 
-    with {:ok, key_type_string} <- Core.key_type_to_string(key_type) do
-      Core.create_keypair(key_name, key_type_string, allow_key_export_and_backup, namespace)
+    with {:ok, key_type_string} <- Core.key_type_to_string(key_type),
+         {:ok, key_data} <-
+           Core.create_keypair(key_name, key_type_string, allow_key_export_and_backup, namespace) do
+      Key.parse(key_name, namespace, key_data)
     end
   end
 
@@ -98,19 +82,7 @@ defmodule Astarte.Secrets do
     end
   end
 
-  @spec sign(String.t(), binary(), Core.key_algorithm(), Core.digest_type(), keyword()) ::
-          {:ok, binary()} | :error
-  def sign(key_name, payload, key_alg, digest_type, opts) do
-    opts = Keyword.take(opts, [:namespace, :token])
-
-    with {:ok, digest_type} <- Core.digest_type(digest_type) do
-      Core.sign(key_name, payload, key_alg, digest_type, opts)
-    end
-  end
-
-  @type cose_key :: %ECC{} | %RSA{}
-
-  @spec import_key(String.t(), Core.key_algorithm(), cose_key(), list()) :: :ok | :error
+  @spec import_key(String.t(), Core.key_algorithm(), COSE.Keys.Key.t(), list()) :: :ok | :error
   def import_key(key_name, key_type, key, opts \\ []) do
     namespace = Keyword.fetch!(opts, :namespace)
     client_opts = [namespace: namespace] ++ Keyword.take(opts, [:token])

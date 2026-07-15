@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-defmodule Astarte.Secrets.Client do
+defmodule Astarte.Secrets.Vault.Client do
   @moduledoc """
   Client for OpenBao
   """

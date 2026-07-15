@@ -16,21 +16,22 @@
 # limitations under the License.
 #
 
-defmodule Astarte.SecretsTest do
+defmodule Astarte.Secrets. do
   use ExUnit.Case, async: true
   use Mimic
 
   alias Astarte.Secrets
-  alias Astarte.Secrets.Client
+  alias Astarte.Secrets.Vault.Client
   alias Astarte.Secrets.Config
   alias Astarte.Secrets.Core
-  alias Astarte.Secrets.Key
+  alias Astarte.Secrets.Vault.Key
   alias COSE.Keys.ECC
 
   import Astarte.Helpers.Namespace
   import Astarte.Helpers.Key
+  import ExUnit.CaptureLog
 
-  describe "create_namespace/3" do
+  describe "create_owner_key_namespace/3" do
     setup :namespace_tokens_setup
 
     test "calls core functions", context do
@@ -43,24 +44,23 @@ defmodule Astarte.SecretsTest do
       |> expect(:namespace_tokens, fn ^realm_name, ^user_id, ^key_algorithm_str -> ref end)
       |> expect(:create_nested_namespace, fn ^ref -> {:ok, ""} end)
 
-      assert {:ok, _} = Secrets.create_namespace(realm_name, user_id, key_algorithm)
+      assert {:ok, _} = Vault.create_owner_key_namespace(realm_name, user_id, key_algorithm)
     end
   end
 
-  describe "successfully create and delete a key pair in Secrets" do
+  describe "create_keypair/3" do
     setup context do
       key_type = Map.get(context, :key_type)
       {:ok, key_type_to_string} = Core.key_type_to_string(key_type)
       realm_name = "realm#{System.unique_integer([:positive])}"
       {:ok, namespace} = Secrets.create_namespace(realm_name, key_type)
       key_name = "some_key_#{key_type_to_string}"
-      allow_key_export_and_backup = true
 
-      opts = [
-        {:token, Config.bao_token!()},
-        {:namespace, namespace},
-        {:allow_key_export_and_backup, allow_key_export_and_backup}
-      ]
+      on_exit(fn ->
+        capture_log(fn ->
+          FDO
+        end)
+      end)
 
       %{
         key_name: key_name,
@@ -79,7 +79,7 @@ defmodule Astarte.SecretsTest do
       allow_key_export_and_backup: allow_key_export_and_backup,
       opts: opts
     } do
-      assert {:ok, key_data} = Secrets.create_keypair(key_name, key_type, opts)
+      assert {:ok, %Key{name: ^key_name, alg: }} = Secrets.create_keypair(key_name, key_type, opts)
 
       assert %{
                "name" => ^key_name,
@@ -87,8 +87,6 @@ defmodule Astarte.SecretsTest do
                "exportable" => ^allow_key_export_and_backup,
                "allow_plaintext_backup" => ^allow_key_export_and_backup
              } = key_data
-
-      assert :ok == cleanup_key(key_name, opts)
     end
 
     @tag key_type: :es384
@@ -107,8 +105,6 @@ defmodule Astarte.SecretsTest do
                "exportable" => ^allow_key_export_and_backup,
                "allow_plaintext_backup" => ^allow_key_export_and_backup
              } = key_data
-
-      assert :ok == cleanup_key(key_name, opts)
     end
 
     @tag key_type: :rs256
@@ -127,8 +123,6 @@ defmodule Astarte.SecretsTest do
                "exportable" => ^allow_key_export_and_backup,
                "allow_plaintext_backup" => ^allow_key_export_and_backup
              } = key_data
-
-      assert :ok == cleanup_key(key_name, opts)
     end
 
     @tag key_type: :rs384
@@ -147,8 +141,6 @@ defmodule Astarte.SecretsTest do
                "exportable" => ^allow_key_export_and_backup,
                "allow_plaintext_backup" => ^allow_key_export_and_backup
              } = key_data
-
-      assert :ok == cleanup_key(key_name, opts)
     end
   end
 

@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-defmodule Astarte.Secrets.Key do
+defmodule Astarte.Secrets.Vault.Key do
   @moduledoc """
   `COSE.Keys.Key` implementation for OpenBao keys.
   """
@@ -25,9 +25,9 @@ defmodule Astarte.Secrets.Key do
 
   import Ecto.Changeset
 
-  alias Astarte.Secrets.Core
-  alias Astarte.Secrets.Key
-  alias Astarte.Secrets.Key.Revision
+  alias Astarte.Secrets.Vault.Core
+  alias Astarte.Secrets.Vault.Key
+  alias Astarte.Secrets.Vault.Key.Revision
 
   @primary_key false
   typed_embedded_schema do
@@ -94,15 +94,15 @@ defmodule Astarte.Secrets.Key do
   end
 end
 
-defimpl COSE.Keys.Key, for: Astarte.Secrets.Key do
-  alias Astarte.Secrets
-  alias Astarte.Secrets.Key
+defimpl COSE.Keys.Key, for: Astarte.Secrets.Vault.Key do
+  alias Astarte.Secrets.Vault.Core
+  alias Astarte.Secrets.Vault.Key
 
   def sign(key, digest_type, to_be_signed) do
     %Key{name: name, namespace: namespace, alg: algorithm} = key
     opts = [namespace: namespace]
 
-    with :error <- Secrets.sign(name, to_be_signed, algorithm, digest_type, opts) do
+    with :error <- Core.sign(name, to_be_signed, algorithm, digest_type, opts) do
       {:error, :signature_error}
     end
   end

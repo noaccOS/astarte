@@ -21,7 +21,7 @@ defmodule Astarte.Secrets.CoreTest do
   use Mimic
 
   alias Astarte.Secrets
-  alias Astarte.Secrets.Client
+  alias Astarte.Secrets.Vault.Client
   alias Astarte.Secrets.Config
   alias Astarte.Secrets.Core
   alias COSE.Keys.ECC
@@ -619,40 +619,6 @@ defmodule Astarte.Secrets.CoreTest do
       assert {:ok, %{es256: keys}} = result
       assert "k1" in keys
       assert "k2" in keys
-    end
-  end
-
-  describe "find_key/3" do
-    test "returns {:ok, key} when the key exists" do
-      unique_id = System.unique_integer([:positive])
-      realm_name = "findtest_#{unique_id}"
-
-      {:ok, ns} = Secrets.create_namespace(realm_name, :es256)
-
-      Secrets.create_keypair("find-me", :es256, namespace: ns)
-
-      assert {:ok, key} = Core.find_key(realm_name, "find-me", :es256)
-      assert key.name == "find-me"
-    end
-
-    test "returns :not_found when key does not exist" do
-      unique_id = System.unique_integer([:positive])
-      realm_name = "findtest_missing_#{unique_id}"
-
-      {:ok, _} = Secrets.create_namespace(realm_name, :es256)
-
-      assert :not_found = Core.find_key(realm_name, "no-such-key", :es256)
-    end
-
-    test "returns :not_found when key exists under a different algorithm" do
-      unique_id = System.unique_integer([:positive])
-      realm_name = "findtest_alg_#{unique_id}"
-
-      {:ok, ns} = Secrets.create_namespace(realm_name, :es256)
-
-      Secrets.create_keypair("find-me", :es256, namespace: ns)
-
-      assert :not_found = Core.find_key(realm_name, "find-me", :es384)
     end
   end
 end

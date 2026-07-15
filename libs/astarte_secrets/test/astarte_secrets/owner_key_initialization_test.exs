@@ -26,25 +26,6 @@ defmodule Astarte.Secrets.OwnerKeyInitializationTest do
 
   setup :verify_on_exit!
 
-  # A P-256 EC private key PEM, parseable by COSE.Keys.from_pem/1
-  # (yields %COSE.Keys.ECC{alg: :es256}).
-  @p256_private_key_pem """
-  -----BEGIN EC PRIVATE KEY-----
-  MHcCAQEEIFlbTEE1Ce+RSqhU8FqxsY7eNb9BaBWOTw6qFv7l0DZtoAoGCCqGSM49
-  AwEHoUQDQgAEocPEIHIrn08VRO5zkkDztwp72Sw0BSm0mZeLgOKkHLUPdVFFlc0E
-  O82b1/S2Cwzwh8MIDDx0CN2b+IBl5bRwOw==
-  -----END EC PRIVATE KEY-----
-  """
-
-  # A SubjectPublicKeyInfo PEM: valid PEM syntax but not a private key,
-  # so COSE.Keys.from_pem/1 returns :error (used for the invalid-upload path).
-  @public_key_pem """
-  -----BEGIN PUBLIC KEY-----
-  MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAES+TkA7VtJQv9YQ75yl5btXKR/cso
-  yfLzYWUTgxViGMfJkvql4W3zrtRaVPU9I06TOHFC2Mwy+9S3A7UWv/EWtg==
-  -----END PUBLIC KEY-----
-  """
-
   @sample_namespace "fdo_owner_keys/test_realm/ecdsa-p256"
   @sample_realm "test_realm"
   @sample_key_name "owner_key"

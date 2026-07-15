@@ -16,13 +16,13 @@
 # limitations under the License.
 #
 
-defmodule Astarte.Secrets.KeyTest do
+defmodule Astarte.Secrets.Vault.KeyTest do
   use ExUnit.Case, async: true
   use Mimic
 
-  alias Astarte.Secrets
-  alias Astarte.Secrets.Core
-  alias Astarte.Secrets.Key
+  alias Astarte.Secrets.Vault
+  alias Astarte.Secrets.Vault.Core
+  alias Astarte.Secrets.Vault.Key
   alias COSE.Keys
   alias COSE.Messages.Sign1
 
@@ -39,14 +39,14 @@ defmodule Astarte.Secrets.KeyTest do
     test "calls Secrets.sign/5", %{key: key} do
       out = <<>>
 
-      Secrets
+      Core
       |> expect(:sign, fn _key_name, _payload, _algorithm, _digest_type, _opts -> {:ok, out} end)
 
       assert {:ok, out} == Keys.sign(key, key.alg, <<>>)
     end
 
     test "returns `{:error, :signature_error}` in case of error", %{key: key} do
-      Secrets
+      Core
       |> expect(:sign, fn _key_name, _payload, _algorithm, _digest_type, _opts -> :error end)
 
       assert {:error, :signature_error} == Keys.sign(key, key.alg, <<>>)
@@ -60,7 +60,7 @@ defmodule Astarte.Secrets.KeyTest do
   test "uses the numerically largest (not alphabetically largest) revision for the public key",
        %{key: key} do
     for _ <- 0..9 do
-      {:ok, _} = Secrets.rotate(key.name, key.namespace)
+      {:ok, _} = Vault.rotate(key.name, key.namespace)
     end
 
     {:ok, resp} = Core.get_key(key.name, key.namespace)

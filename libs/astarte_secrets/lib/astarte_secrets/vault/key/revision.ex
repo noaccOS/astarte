@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-defmodule Astarte.Secrets.Key.Revision do
+defmodule Astarte.Secrets.Vault.Key.Revision do
   @moduledoc """
   Single key revision for a Vault key
   """
@@ -25,7 +25,7 @@ defmodule Astarte.Secrets.Key.Revision do
 
   import Ecto.Changeset
 
-  alias Astarte.Secrets.Core
+  alias Astarte.Secrets.Vault.Core
   alias Ecto.Changeset
 
   @asymmetric_key_algorithms Core.asymmetric_key_algorithms()

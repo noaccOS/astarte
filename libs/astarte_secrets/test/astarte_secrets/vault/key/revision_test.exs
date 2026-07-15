@@ -16,10 +16,10 @@
 # limitations under the License.
 #
 
-defmodule Astarte.Secrets.Key.RevisionTest do
+defmodule Astarte.Secrets.Vault.Key.RevisionTest do
   use ExUnit.Case, async: true
 
-  alias Astarte.Secrets.Key.Revision
+  alias Astarte.Secrets.Vault.Key.Revision
 
   describe "changeset/4" do
     test "returns an error when the parameters are in unexpected format for asymmetric keys" do

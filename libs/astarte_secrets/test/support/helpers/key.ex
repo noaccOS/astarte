@@ -19,16 +19,13 @@
 defmodule Astarte.Helpers.Key do
   @moduledoc false
 
-  alias Astarte.Secrets
-  alias Astarte.Secrets.Key
+  alias Astarte.Secrets.FDOOwnerKeys
 
   def key_setup(context) do
     realm_name = "realm#{System.unique_integer([:positive])}"
     key_name = "key#{System.unique_integer()}"
     key_algorithm = Map.get(context, :key_algorithm, :es256)
-    {:ok, namespace} = Secrets.create_namespace(realm_name, key_algorithm)
-    {:ok, data} = Secrets.create_keypair(key_name, key_algorithm, namespace: namespace)
-    {:ok, key} = Key.parse(key_name, namespace, data)
+    {:ok, key} = FDOOwnerKeys.create(realm_name, key_name, key_algorithm)
 
     %{key: key}
   end

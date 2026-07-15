@@ -16,11 +16,11 @@
 # limitations under the License.
 #
 
-defmodule Astarte.Secrets.ClientTest do
+defmodule Astarte.Secrets.Vault.ClientTest do
   use ExUnit.Case, async: true
   use Mimic
 
-  alias Astarte.Secrets.Client
+  alias Astarte.Secrets.Vault.Client
   alias Astarte.Secrets.Config
 
   import Astarte.Common.Generators.HTTP

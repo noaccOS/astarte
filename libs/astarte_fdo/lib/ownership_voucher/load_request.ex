@@ -214,18 +214,9 @@ defmodule Astarte.FDO.OwnershipVoucher.LoadRequest do
     key_name = fetch_field!(changeset, :key_name)
     key_algorithm = fetch_field!(changeset, :key_algorithm)
 
-    case fetch_key_for_algorithm(realm_name, key_name, key_algorithm) do
+    case Secrets.fetch_owner_key(realm_name, key_name, key_algorithm) do
       {:ok, key} -> put_change(changeset, :extracted_owner_key, key)
       {:error, _} -> add_error(changeset, :key_name, "does not exist in secrets store")
-    end
-  end
-
-  defp fetch_key_for_algorithm(realm_name, key_name, key_algorithm) do
-    with {:ok, namespace} <- Secrets.create_namespace(realm_name, key_algorithm),
-         {:ok, key} <- Secrets.get_key(key_name, namespace: namespace) do
-      {:ok, key}
-    else
-      _ -> {:error, :not_found}
     end
   end
 

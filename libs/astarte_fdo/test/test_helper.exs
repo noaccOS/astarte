@@ -43,6 +43,7 @@ modules = [
   Astarte.FDO.ServiceInfo,
   Astarte.RPC.RealmManagement,
   Astarte.Secrets,
+  Astarte.Secrets.Vault,
   DateTime,
   HTTPoison
 ]

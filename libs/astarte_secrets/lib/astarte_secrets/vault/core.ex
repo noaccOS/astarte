@@ -16,14 +16,14 @@
 # limitations under the License.
 #
 
-defmodule Astarte.Secrets.Core do
+defmodule Astarte.Secrets.Vault.Core do
   @moduledoc """
   Implementation of function to interface with OpenBao.
   """
 
   alias Astarte.DataAccess.Config, as: DataAccessConfig
   alias Astarte.Secrets
-  alias Astarte.Secrets.Client
+  alias Astarte.Secrets.Vault.Client
   alias Astarte.Secrets.Config
   alias COSE.Keys.ECC
   alias COSE.Keys.RSA
@@ -266,7 +266,7 @@ defmodule Astarte.Secrets.Core do
     end
   end
 
-  @spec get_key(String.t(), String.t()) :: {:ok, String.t()} | :error
+  @spec get_key(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def get_key(key_name, namespace) do
     headers = [{"Content-Type", "application/json"}]
 
@@ -278,13 +278,13 @@ defmodule Astarte.Secrets.Core do
 
       {:ok, %HTTPoison.Response{status_code: 404}} ->
         Logger.debug("Key #{key_name} not found in namespace #{namespace}")
-        :error
+        {:error, :not_found}
 
       error_resp ->
         "Encountered HTTP error while getting key #{key_name}: #{inspect(error_resp)}"
         |> Logger.error()
 
-        :error
+        {:error, {:http_error, error_resp}}
     end
   end
 
@@ -457,16 +457,17 @@ defmodule Astarte.Secrets.Core do
   Signs data using a key stored in OpenBao's transit engine.
   Translates FDO/COSE algorithms to the specific OpenBao parameters.
   """
-  @spec sign(String.t(), binary(), key_algorithm(), String.t(), keyword()) ::
+  @spec sign(String.t(), binary(), key_algorithm(), digest_type(), keyword()) ::
           {:ok, binary()} | :error
   def sign(key_name, payload, key_alg, digest_type, opts) do
     vault_opts = map_cose_alg_to_vault_opts(key_alg)
-    url_path = "/transit/sign/#{key_name}/#{digest_type}"
 
     req_body = build_sign_payload(payload, vault_opts)
     headers = [{"Content-Type", "application/json"}]
 
-    with {:ok, %HTTPoison.Response{status_code: 200, body: resp_body}} <-
+    with {:ok, digest_type_string} <- digest_type(digest_type),
+         url_path = "/transit/sign/#{key_name}/#{digest_type_string}",
+         {:ok, %HTTPoison.Response{status_code: 200, body: resp_body}} <-
            Client.post(url_path, req_body, headers, opts),
          {:ok, signature} <- extract_and_decode_signature(resp_body, key_alg) do
       {:ok, signature}
