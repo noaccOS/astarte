@@ -1,18 +1,18 @@
 use std::time::Duration;
 
+use crate::amqp_trigger_consumer::AMQPTriggerConsumer;
+use crate::astarte_event::{
+    DataTriggerCondition, DataTriggerMatchOperator, DeviceTriggerCondition, SimpleTrigger,
+    SimpleTriggerTarget, Trigger,
+};
+use crate::room::TransitiveTrigger;
+use crate::{config::Config, device_client, interfaces::AstarteClient, room::Room};
 use astarte_device_sdk::AstarteData::Integer;
 use astarte_device_sdk::{
     EventLoop, pairing::api::registration::generate_random_uuid, transport::mqtt::Credential,
 };
-use astarte_e2e::amqp_trigger_consumer::AMQPTriggerConsumer;
-use astarte_e2e::astarte_event::{
-    DataTriggerCondition, DataTriggerMatchOperator, DeviceTriggerCondition, SimpleTrigger,
-    SimpleTriggerTarget, Trigger,
-};
-use astarte_e2e::room::TransitiveTrigger;
-use astarte_e2e::{config::Config, device_client, interfaces::AstarteClient, room::Room};
 use clap::Parser;
-use eyre::Context;
+use eyre::{Context, OptionExt};
 use tempfile::TempDir;
 use tokio::sync::broadcast::Sender;
 use tokio::task::JoinSet;
@@ -51,6 +51,25 @@ pub struct ConnectionBuilder {
 }
 
 impl ConnectionBuilder {
+    pub fn new() -> eyre::Result<Self> {
+        let config = Config::try_parse()?;
+
+        let device_config
+
+        let device_id = config
+            .device
+            .device_id
+            .clone()
+            .ok_or_eyre("device_id is required for ConnectionBuilder::new")?;
+
+        Ok(Self {
+            config,
+            device_id,
+            credentials_secret: config.device.credentials_secret,
+            receive_interface_data: true,
+            volatile_triggers: vec![],
+        })
+    }
     /// Build a connection with a randomly generated device id, registered
     /// through the pairing API using the JWT as pairing token.
     pub fn new_random() -> eyre::Result<Self> {

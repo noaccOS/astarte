@@ -1,4 +1,4 @@
-use astarte_e2e::scenarios;
+use astarte_e2e::scenarios::{self, interfaces::device::individual_datastream};
 
 use clap::{Parser, Subcommand};
 
@@ -10,7 +10,21 @@ pub struct Config {
     pub e2e_config: astarte_e2e::config::Config,
 }
 
+impl Config {
+    pub fn run(&self) -> eyre::Result<()> {
+
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Monitor {
-    IndividualDatastream(scenarios::interfaces::device::individual_datastream::Config),
+    IndividualDatastream(individual_datastream::Config),
+}
+
+impl Monitor {
+    pub async fn run(&self) -> eyre::Result<()> {
+        match self {
+            Self::IndividualDatastream(config) =>
+        }
+    }
 }
