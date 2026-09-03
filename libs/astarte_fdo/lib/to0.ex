@@ -87,7 +87,7 @@ defmodule Astarte.FDO.TO0 do
     realm_rv_to2_addr_entry =
       RvTO2Addr.for_realm(
         realm_name,
-        Config.base_url_domain!(),
+        Config.base_url_host!(),
         Config.base_url_port!(),
         Config.base_url_protocol!()
       )

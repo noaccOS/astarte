@@ -45,9 +45,33 @@ defmodule Astarte.FDO.Core.Rendezvous.RvTO2Addr do
     field :protocol, protocol()
   end
 
-  def for_realm(realm_name, domain, port, protocol) do
-    dns = "#{realm_name}.#{domain}"
-    %RvTO2Addr{dns: dns, port: port, protocol: protocol}
+  @typedoc """
+  The configured base URL host, already resolved by the configuration layer to
+  either a domain name or an IP address.
+  """
+  @type host :: {:domain, String.t()} | {:ip, :inet.ip_address()}
+
+  @doc """
+  Builds the RvTO2Addr entry for `realm_name`, given the configured base URL
+  `host`.
+
+  A domain name is prefixed with the realm name and carried in the `dns` field;
+  an IP address is encoded to its byte representation and carried in the `ip`
+  field.
+  """
+  @spec for_realm(String.t(), host(), non_neg_integer(), protocol()) :: t()
+  def for_realm(realm_name, {:domain, domain}, port, protocol) do
+    %RvTO2Addr{dns: "#{realm_name}.#{domain}", port: port, protocol: protocol}
+  end
+
+  def for_realm(_realm_name, {:ip, address}, port, protocol) do
+    %RvTO2Addr{ip: ip_tuple_to_bytes(address), port: port, protocol: protocol}
+  end
+
+  defp ip_tuple_to_bytes({a, b, c, d}), do: <<a, b, c, d>>
+
+  defp ip_tuple_to_bytes({a, b, c, d, e, f, g, h}) do
+    <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>>
   end
 
   def encode(rv_to2_addr) do

@@ -47,12 +47,20 @@ defmodule Astarte.FDO.ConfigTest do
   end
 
   describe "base_url!/0" do
-    test "builds the URL from protocol, domain and port" do
+    test "builds the URL from protocol, a domain host and port" do
       stub(Config, :base_url_protocol!, fn -> :https end)
-      stub(Config, :base_url_domain!, fn -> "astarte.example.com" end)
+      stub(Config, :base_url_host!, fn -> {:domain, "astarte.example.com"} end)
       stub(Config, :base_url_port!, fn -> 443 end)
 
       assert Config.base_url!() == "https://astarte.example.com:443"
+    end
+
+    test "builds the URL from an IP host" do
+      stub(Config, :base_url_protocol!, fn -> :http end)
+      stub(Config, :base_url_host!, fn -> {:ip, {192, 168, 1, 10}} end)
+      stub(Config, :base_url_port!, fn -> 4003 end)
+
+      assert Config.base_url!() == "http://192.168.1.10:4003"
     end
   end
 end
