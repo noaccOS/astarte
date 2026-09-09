@@ -23,22 +23,31 @@ defmodule Astarte.FDO.Config.BaseURLHostTest do
 
   describe "cast/1" do
     test "casts a domain name to a {:domain, _} tuple" do
-      assert BaseURLHost.cast("astarte.example.com") == {:ok, {:domain, "astarte.example.com"}}
+      assert BaseURLHost.cast("astarte.example.com") ==
+               {:ok, %BaseURLHost{type: :domain, value: "astarte.example.com"}}
     end
 
     test "casts an IPv4 address to an {:ip, _} tuple" do
-      assert BaseURLHost.cast("192.168.1.10") == {:ok, {:ip, {192, 168, 1, 10}}}
+      assert BaseURLHost.cast("192.168.1.10") ==
+               {:ok, %BaseURLHost{type: :ip, value: {192, 168, 1, 10}}}
     end
 
     test "casts an IPv6 address to an {:ip, _} tuple" do
-      assert BaseURLHost.cast("::1") == {:ok, {:ip, {0, 0, 0, 0, 0, 0, 0, 1}}}
+      assert BaseURLHost.cast("::1") ==
+               {:ok, %BaseURLHost{type: :ip, value: {0, 0, 0, 0, 0, 0, 0, 1}}}
     end
 
-    test "accepts already-cast tuples" do
+    test "accepts tuples" do
       assert BaseURLHost.cast({:domain, "astarte.example.com"}) ==
-               {:ok, {:domain, "astarte.example.com"}}
+               {:ok, %BaseURLHost{type: :domain, value: "astarte.example.com"}}
 
-      assert BaseURLHost.cast({:ip, {192, 168, 1, 10}}) == {:ok, {:ip, {192, 168, 1, 10}}}
+      assert BaseURLHost.cast({:ip, {192, 168, 1, 10}}) ==
+               {:ok, %BaseURLHost{type: :ip, value: {192, 168, 1, 10}}}
+    end
+
+    test "accepts itself" do
+      base_url_host = BaseURLHost.cast("astarte.example.com")
+      assert BaseURLHost.cast(base_url_host) == {:ok, base_url_host}
     end
 
     test "returns error for a blank or non-binary value" do
@@ -50,21 +59,22 @@ defmodule Astarte.FDO.Config.BaseURLHostTest do
 
   describe "to_string/1" do
     test "returns a domain name unchanged" do
-      assert BaseURLHost.to_string({:domain, "astarte.example.com"}) == "astarte.example.com"
+      assert to_string(%BaseURLHost{type: :domain, value: "astarte.example.com"}) ==
+               "astarte.example.com"
     end
 
     test "renders an IPv4 address" do
-      assert BaseURLHost.to_string({:ip, {192, 168, 1, 10}}) == "192.168.1.10"
+      assert to_string(%BaseURLHost{type: :ip, value: {192, 168, 1, 10}}) == "192.168.1.10"
     end
 
     test "renders an IPv6 address" do
-      assert BaseURLHost.to_string({:ip, {0, 0, 0, 0, 0, 0, 0, 1}}) == "::1"
+      assert to_string(%BaseURLHost{type: :ip, value: {0, 0, 0, 0, 0, 0, 0, 1}}) == "::1"
     end
 
     test "round-trips a cast value" do
       for value <- ["astarte.example.com", "192.168.1.10", "::1"] do
         assert {:ok, host} = BaseURLHost.cast(value)
-        assert BaseURLHost.to_string(host) == value
+        assert to_string(host) == value
       end
     end
   end

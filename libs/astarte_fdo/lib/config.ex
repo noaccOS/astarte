@@ -61,7 +61,7 @@ defmodule Astarte.FDO.Config do
 
   def base_url! do
     protocol = __MODULE__.base_url_protocol!()
-    host = BaseURLHost.to_string(__MODULE__.base_url_host!())
+    host = __MODULE__.base_url_host!()
     port = __MODULE__.base_url_port!()
 
     "#{protocol}://#{host}:#{port}"

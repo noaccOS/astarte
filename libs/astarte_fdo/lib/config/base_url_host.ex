@@ -26,31 +26,39 @@ defmodule Astarte.FDO.Config.BaseURLHost do
     * `{:domain, String.t()}` otherwise
   """
 
-  use Skogsra.Type
+  use TypedStruct
+  alias Astarte.FDO.Config.BaseURLHost
 
-  import Kernel, except: [to_string: 1]
+  defstruct [:type, :value]
 
-  @typedoc "The resolved base URL host."
-  @type host :: {:domain, String.t()} | {:ip, :inet.ip_address()}
+  @behaviour Skogsra.Type
+
+  @type t ::
+          %__MODULE__{type: :domain, value: String.t()}
+          | %__MODULE__{type: :ip, value: :inet.ip_address()}
 
   @impl Skogsra.Type
   def cast(value) when is_binary(value) and value != "" do
     case value |> String.to_charlist() |> :inet.parse_address() do
-      {:ok, address} -> {:ok, {:ip, address}}
-      {:error, _reason} -> {:ok, {:domain, value}}
+      {:ok, address} -> {:ok, %BaseURLHost{type: :ip, value: address}}
+      {:error, _reason} -> {:ok, %BaseURLHost{type: :domain, value: value}}
     end
   end
 
-  def cast({:domain, domain} = value) when is_binary(domain) and domain != "", do: {:ok, value}
+  def cast({:domain, domain}) when is_binary(domain) and domain != "",
+    do: {:ok, %BaseURLHost{type: :domain, value: domain}}
 
-  def cast({:ip, address} = value) when is_tuple(address), do: {:ok, value}
+  def cast({:ip, address}) when is_tuple(address),
+    do: {:ok, %BaseURLHost{type: :ip, value: address}}
+
+  def cast(%BaseURLHost{} = base_url_host), do: {:ok, base_url_host}
 
   def cast(_), do: :error
 
-  @doc """
-  Renders a resolved host back to its string form, e.g. for URL composition.
-  """
-  @spec to_string(host()) :: String.t()
-  def to_string({:domain, domain}), do: domain
-  def to_string({:ip, address}), do: address |> :inet.ntoa() |> List.to_string()
+  defimpl String.Chars do
+    def to_string(%BaseURLHost{type: :domain, value: domain}), do: domain
+
+    def to_string(%BaseURLHost{type: :ip, value: address}),
+      do: address |> :inet.ntoa() |> List.to_string()
+  end
 end
